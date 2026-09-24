@@ -124,7 +124,8 @@ async function commitLeadsToGitHub(leads, sha, message) {
       memoryCache = { leads, sha: null, timestamp: Date.now() };
       return { success: true, localOnly: true };
     } catch (e) {
-      throw new Error('未配置 GitHub 写入凭据且本地写入受限');
+      memoryCache = { leads, sha: null, timestamp: Date.now() };
+      return { success: true, memoryOnly: true };
     }
   }
 
