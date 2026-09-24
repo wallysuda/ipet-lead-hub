@@ -1,0 +1,115 @@
+{
+  "channels": [
+    {
+      "id": "website_rfq",
+      "name": "官网独立站询盘 (Website RFQ)",
+      "badge": "官网独立站",
+      "color": "#2563eb",
+      "description": "来自 ipetsystem.com 独立站 Contact Us、技术规格索取或底栏留言",
+      "default_fields": ["姓名", "企业邮箱", "公司名称", "需求描述", "飞行器形态", "起飞重量", "联系电话"]
+    },
+    {
+      "id": "linkedin_form",
+      "name": "LinkedIn 广告原生表单 (Lead Gen Form)",
+      "badge": "LinkedIn 广告",
+      "color": "#0a66c2",
+      "description": "来自 LinkedIn 信息流赞助广告落地页的原生极速提交表单",
+      "default_fields": ["First Name", "Last Name", "Work Email", "Company Name", "Job Title", "Drone Program Stage", "Target MTOW"]
+    },
+    {
+      "id": "tradeshow",
+      "name": "线下专业展会登记 (Trade Show / DroneX)",
+      "badge": "线下展会",
+      "color": "#7c3aed",
+      "description": "来自 DroneX、AUVSI Xponential、Commercial UAV Expo 等现场展位登记与名片打样",
+      "default_fields": ["Contact Person", "Company / Organization", "Email", "Booth # / Event", "Target Airframe", "Machining / Sample Request"]
+    },
+    {
+      "id": "google_ads",
+      "name": "Google 搜索广告留资 (Google Search / PMax)",
+      "badge": "Google 搜索",
+      "color": "#ea4335",
+      "description": "来自海外高意向技术关键词搜索（如 drone propulsion system, heavy lift uav motor）点击后的留资",
+      "default_fields": ["Full Name", "Business Email", "Company", "Target Voltage", "Payload Requirement", "Country"]
+    },
+    {
+      "id": "supplier_pitch",
+      "name": "外协供应商合作自荐 (Supplier / Subcontractor)",
+      "badge": "外协服务商",
+      "color": "#d97706",
+      "description": "微电子封装、引线键合、SMT 贴片、五金精密机加外协厂家的自荐询盘",
+      "default_fields": ["业务代表姓名", "企业名称", "业务类型", "合作诉求", "联系电话", "工艺能力介绍"]
+    },
+    {
+      "id": "chat_direct",
+      "name": "销售初聊 / WhatsApp 自由文本",
+      "badge": "直接沟通",
+      "color": "#059669",
+      "description": "业务团队直接复制的 WhatsApp、Skype、邮件初聊非结构化文本",
+      "default_fields": ["自由文本直接粘贴，由 NLP 引擎自动抽取实体"]
+    }
+  ],
+  "semantic_aliases": {
+    "name": [
+      "name", "full name", "fullname", "first name", "firstname", "contact name", "contact",
+      "customer name", "user name", "representative", "姓名", "客户姓名", "客户", "联系人",
+      "您的称呼", "全名", "称谓", "访客", "留言人"
+    ],
+    "email": [
+      "email", "e-mail", "work email", "business email", "corporate email", "contact email",
+      "company email", "email address", "邮箱", "电子邮箱", "企业邮箱", "工作邮箱", "电子信箱"
+    ],
+    "company": [
+      "company", "company name", "organization", "agency", "institution", "firm", "business",
+      "enterprise", "workplace", "公司", "企业名称", "单位名称", "所属机构", "机构", "单位", "公司名"
+    ],
+    "job_title": [
+      "job title", "jobtitle", "title", "position", "role", "designation", "profession",
+      "职位", "职务", "头衔", "岗位", "职称", "客户职位"
+    ],
+    "phone": [
+      "phone", "phone number", "mobile", "tel", "telephone", "whatsapp", "cell",
+      "电话", "联系电话", "手机", "手机号码", "电话号码"
+    ],
+    "country": [
+      "country", "region", "nation", "location", "国家", "地区", "所在地", "国别"
+    ],
+    "requirements": [
+      "requirements", "inquiry", "message", "comments", "project description", "notes", "request",
+      "needs", "details", "project background", "需求描述", "诉求", "留言", "咨询内容", "合作诉求",
+      "留言内容", "备注", "需求", "项目背景", "采购诉求"
+    ],
+    "mtow": [
+      "mtow", "takeoff weight", "max takeoff weight", "maximum takeoff weight", "gross weight",
+      "起飞重量", "最大起飞重量", "整机起飞重量", "整机重量", "重量需求"
+    ],
+    "voltage": [
+      "voltage", "bus voltage", "battery voltage", "operating voltage", "power voltage",
+      "工作电压", "母线电压", "电池电压", "电压", "电源架构"
+    ],
+    "payload": [
+      "payload", "payload capacity", "max payload", "sensor load", "载荷", "载荷能力", "载重量",
+      "任务载荷", "载重需求", "载重"
+    ],
+    "thrust": [
+      "thrust", "hover thrust", "peak thrust", "rated thrust", "per axis thrust",
+      "推力", "悬停推力", "峰值推力", "额定推力", "单轴推力"
+    ],
+    "propeller": [
+      "propeller", "prop", "blade", "prop size", "propeller diameter",
+      "螺旋桨", "桨叶", "桨尺寸", "螺旋桨尺寸", "桨叶规格"
+    ],
+    "uav_type": [
+      "airframe", "uav type", "drone type", "configuration", "airframe configuration", "layout",
+      "飞行器形态", "机型形态", "构型", "飞行平台", "飞行器类型"
+    ],
+    "stage": [
+      "project stage", "development stage", "timeline stage", "status",
+      "研发阶段", "项目阶段", "当前阶段", "开发阶段", "试飞排期"
+    ],
+    "quantity": [
+      "quantity", "volume", "forecast", "units", "batch size", "annual volume",
+      "数量", "采购量", "预估采购量", "年采购量", "首批打样套数", "需求套数"
+    ]
+  }
+}

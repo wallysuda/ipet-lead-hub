@@ -1,0 +1,237 @@
+[
+  {
+    "id": "LEAD-CSV-1790219306961-1",
+    "submitted_at": "2026-09-24 03:08",
+    "name": "IPET客户留言 Alisha",
+    "email": "sales01@jstth.com",
+    "company": "JS Technology Ltd.",
+    "job_title": "",
+    "form_name": "IPET客户留言",
+    "fields_filled": {
+      "时间": "2026-09-23 14:59:36",
+      "内容": "Dear Sir/Madam, Hope this mail find you well. This is Alisha from JS Technology Ltd., a Taiwan-based supplier with strong service team and a reliable local manufacturing network. We specialize in motors and components, parts for drones, robotics, and automation, providing flexible OEM/ODM solutions from sample to mass production, with long-term and stable supply. We have also successfully supported customers in the USA, Japan, and Korea for various projects. If you are currently looking for reliable supplier, feel free to share your thoughts with us, we would be happy to discuss with you and see how we can help. Looking forward to your reply, or please forward this to the relevant dep. in charge. Thank you.",
+      "IP": "1.165.254.223"
+    },
+    "jev_analysis": {
+      "tier": "TIER_3_EXPLORATORY",
+      "maturity_score": 1.7,
+      "has_pet_confusion": false,
+      "confidence": 0.5,
+      "recommended_action": "初级意向线索，发送重载无人机动力白皮书与选型计算表，培育后续需求。",
+      "probabilities": {
+        "TIER_2_TECH_SPEC": 0.04,
+        "DISQUALIFIED": 0.34,
+        "TIER_1_READY_RFQ": 0,
+        "TIER_3_EXPLORATORY": 0.62
+      },
+      "source": "jev_live",
+      "model": "jev-1.13.0",
+      "usage": {
+        "input_tokens": 833,
+        "output_tokens": 114
+      }
+    }
+  },
+  {
+    "id": "LEAD-CSV-1790217015510-1",
+    "submitted_at": "2026-09-24 02:30",
+    "name": "Aishwarya Gahlot",
+    "email": "aishwerya.gahlot@soaringaero.com",
+    "company": "Soaring Aerospace",
+    "job_title": "Aeronautical Engineer (航空航天工程师)",
+    "form_name": "IPET客户留言",
+    "fields_filled": {
+      "采购诉求": "65kg 重载飞行器动力总成与电调匹配 (NDAA 标称动力 RFQ)",
+      "飞行器形态": "重载多旋翼飞行平台 (Multirotor · Heavy Lift)",
+      "起飞重量": "65 kg MTOW",
+      "核心技术指标": "额定单轴推力 ~22kg / 峰值推力 ±40kg / 推荐桨叶 45-50in / 母线电压 ~18S (60-78V) / 电机 Kv 50-70 / 防护等级 IPX6 / 要求 NDAA 供应链合规",
+      "应用场景": "工业无人机物流配送 (Drone Delivery)",
+      "研发阶段": "Prototype Development (样机研制阶段)",
+      "交付物需求": "实测推力台架数据表 (Dyno Sheets)、电机 3D STEP 安装图纸、样品报价",
+      "联系电话": "+19499923525 (美国加州 / WhatsApp)"
+    },
+    "jev_analysis": {
+      "tier": "TIER_1_READY_RFQ",
+      "maturity_score": 4.5,
+      "has_pet_confusion": false,
+      "confidence": 1,
+      "recommended_action": "高价值紧急 OEM/研发商机！涉及工业无人机核心动力总成匹配，立即由工程团队发送专属推力台架曲线、选型建议与 3D STEP 下载链接。",
+      "source": "jev_live",
+      "model": "jev-1.13.0"
+    },
+    "channel_scenario": "65kg 重载多旋翼动力总成选型 (Heavy Lift UAS)"
+  },
+  {
+    "id": "LEAD-CSV-1790216522706-1",
+    "submitted_at": "2026-09-24 02:22",
+    "name": "Doug Geary",
+    "email": "Dgeary@firstlevelinc.com",
+    "company": "First level Inc.",
+    "job_title": "商务与技术外协代表 (Microelectronics)",
+    "form_name": "IPET客户留言",
+    "fields_filled": {
+      "业务类型": "微电子封装与组装外协对接 (Microelectronics Packaging Supplier)",
+      "合作诉求": "探讨引线键合 (Wire Bonding) 及芯片封装外协合作",
+      "飞行器形态": "特种构型 (外协微电子与元器件组装)",
+      "应用场景": "微电子元器件组装 (Microelectronics Assembly)",
+      "研发阶段": "供应链商务合作与方案评估阶段",
+      "联系电话": "17172662450 (美国 / WhatsApp)"
+    },
+    "jev_analysis": {
+      "tier": "TIER_3_EXPLORATORY",
+      "maturity_score": 2.1,
+      "has_pet_confusion": false,
+      "confidence": 0.95,
+      "recommended_action": "初级意向线索，发送重载无人机动力白皮书与选型计算表，培育后续需求。",
+      "source": "jev_live",
+      "model": "jev-1.13.0"
+    },
+    "channel_scenario": "微电子元器件外协对接 (Microelectronics Packaging)"
+  },
+  {
+    "id": "LEAD-REAL-005",
+    "submitted_at": "2026-09-10 17:17:49",
+    "name": "Yusuf Abdul",
+    "email": "yusuf.alhathboor@gmail.com",
+    "company": "Al Hathboor Group LLC",
+    "job_title": "Project Manager",
+    "form_name": "官网商业采购与技术选型",
+    "channel_source": "官网独立站询盘",
+    "channel_scenario": "商业采购与产品选型 (Procurement & Wholesale)",
+    "raw_text": "Yusuf Abdul Al Hathboor Group LLC Project Manager yusuf.alhathboor@gmail.com +971560089666 30kg MTOW Multirotor",
+    "raw_requirements": "采购诉求: 索取产品目录、批发价目表及起订量 飞行器形态: 多旋翼飞行平台 (Multirotor) 起飞重量: 30 kg MTOW 研发阶段: Concept Evaluation 合作模式: 批量采购与长期供货合作",
+    "fields_filled": {
+      "采购诉求": "索取产品目录、批发价目表及起订量 (Catalog & Wholesale Pricing)",
+      "飞行器形态": "多旋翼飞行平台 (Multirotor)",
+      "起飞重量": "30 kg MTOW",
+      "研发阶段": "Concept Evaluation (概念可行性评估阶段)",
+      "合作意向": "批量采购与长期供货合作 (Bulk Orders & Supply Partnership)",
+      "联系电话": "+971560089666 (阿联酋 / WhatsApp)"
+    },
+    "jev_analysis": {
+      "tier": "TIER_2_TECH_SPEC",
+      "maturity_score": 3.5,
+      "has_pet_confusion": false,
+      "confidence": 0.94,
+      "recommended_action": "技术资料索取！发送完整规格表与电机电调一体化选型指南。",
+      "source": "jev_live",
+      "model": "jev-1.13.0"
+    }
+  },
+  {
+    "id": "LEAD-REAL-001",
+    "submitted_at": "2026-09-23 09:15",
+    "name": "Preeti Nair",
+    "email": "preeti.nair@baacoaluminum.cc",
+    "company": "Baaco Aluminum",
+    "job_title": "Purchasing Manager",
+    "form_name": "官网商业采购与技术选型",
+    "channel_source": "官网独立站询盘",
+    "channel_scenario": "商业采购与规格对接 (Procurement RFQ)",
+    "raw_text": "Preeti Nair baacoaluminum Purchasing Manager",
+    "raw_requirements": "咨询产品: IPET 工业级动力系统 飞行器形态: Other (特种非标构型 / 载荷测试平台) 客户职位: Purchasing Manager",
+    "fields_filled": {
+      "需求类型": "商业采购与规格对接 (Procurement RFQ)",
+      "咨询产品": "IPET 工业级动力系统 (电机/电调总成与结构件匹配)",
+      "飞行器形态": "Other (特种非标构型 / 载荷测试平台)",
+      "客户职位": "Purchasing Manager (采购部经理)",
+      "核心诉求": "评估工业级动力总成结构件配套、商业采购报价与样品采购流程"
+    },
+    "jev_analysis": {
+      "tier": "TIER_1_READY_RFQ",
+      "maturity_score": 4.5,
+      "has_pet_confusion": false,
+      "confidence": 0.99,
+      "recommended_action": "高价值紧急 OEM/研发商机！涉及工业无人机核心动力总成匹配，立即由工程团队发送专属推力台架曲线、选型建议与 3D STEP 下载链接。",
+      "source": "jev_live",
+      "model": "jev-1.13.0"
+    }
+  },
+  {
+    "id": "LEAD-REAL-002",
+    "submitted_at": "2026-09-23 07:51",
+    "name": "Nguyen Hoai Nam",
+    "email": "nam.nh@gremsy.com",
+    "company": "Gremsy Joint Stock Company",
+    "job_title": "云台与载荷研发评估组 (Gimbal & Payload R&D)",
+    "form_name": "I7 云台载荷选型与低震动对齐",
+    "channel_source": "官网独立站询盘",
+    "channel_scenario": "I7 云台载荷选型 (Gimbal R&D)",
+    "raw_text": "Nguyen Hoai Nam gremsy I7 motor",
+    "raw_requirements": "咨询产品: IPET I7 一体化动力系统 飞行器形态: Other 研发阶段: Concept Evaluation 核心诉求: 三轴云台低震动匹配、FOC 电调超低电磁干扰 (Low EMI)、12S 标称能效验证",
+    "fields_filled": {
+      "咨询产品": "IPET I7 一体化动力系统 (电机 + 电调 + 螺旋桨)",
+      "飞行器形态": "Other (特种构型 / 载荷测试平台)",
+      "研发阶段": "Concept Evaluation (概念可行性评估阶段)",
+      "核心诉求": "三轴云台低震动匹配、FOC 电调超低电磁干扰 (Low EMI)、12S 标称能效验证"
+    },
+    "jev_analysis": {
+      "tier": "TIER_1_READY_RFQ",
+      "maturity_score": 4,
+      "has_pet_confusion": false,
+      "confidence": 0.35,
+      "recommended_action": "高价值紧急 OEM/研发商机！涉及工业无人机核心动力总成匹配，立即由工程团队发送专属推力台架曲线、选型建议与 3D STEP 下载链接。",
+      "source": "jev_live",
+      "model": "jev-1.13.0"
+    }
+  },
+  {
+    "id": "LEAD-REAL-003",
+    "submitted_at": "2026-09-23 08:48",
+    "name": "Scott Ron",
+    "email": "scottron@matzkas.com",
+    "company": "Matzka Incorporated",
+    "job_title": "Procurement Manager",
+    "form_name": "多旋翼试飞样机采购对接",
+    "channel_source": "官网独立站询盘",
+    "channel_scenario": "商业采购与规格对接 (Procurement RFQ)",
+    "raw_text": "Scott Ron matzka Procurement Manager multirotor flight test",
+    "raw_requirements": "需求类型: 项目商业采购与技术规格对接 飞行器形态: 多旋翼飞行平台 研发阶段: Flight Testing 客户职位: Procurement Manager 核心考量: 专人对接规格接收、快速签署 NDA、试飞样机调拨与长期 OEM 批量供货",
+    "fields_filled": {
+      "需求类型": "项目商业采购与技术规格对接 (Procurement & Specifications)",
+      "飞行器形态": "多旋翼飞行平台 (Multirotor)",
+      "研发阶段": "Flight Testing (试飞验证阶段)",
+      "客户职位": "Procurement Manager",
+      "核心考量": "专人对接规格接收、快速签署 NDA、试飞样机调拨与长期 OEM 批量供货"
+    },
+    "jev_analysis": {
+      "tier": "TIER_1_READY_RFQ",
+      "maturity_score": 4.8,
+      "has_pet_confusion": false,
+      "confidence": 1,
+      "recommended_action": "高价值紧急 OEM/研发商机！涉及工业无人机核心动力总成匹配，立即由工程团队发送专属推力台架曲线、选型建议与 3D STEP 下载链接。",
+      "source": "jev_live",
+      "model": "jev-1.13.0"
+    }
+  },
+  {
+    "id": "LEAD-REAL-004",
+    "submitted_at": "2026-09-11 17:48:41",
+    "name": "Jyoung Yu",
+    "email": "jyoung@kxprecision.com",
+    "company": "KAIXIN precision technology co ltd",
+    "job_title": "海外业务与商务代表 (Business Development)",
+    "form_name": "DroneX 展位预约与样件加工外协",
+    "channel_source": "DroneX 展会对接",
+    "channel_scenario": "2026 伦敦航展展位预约 (Booth Meeting)",
+    "raw_text": "Jyoung Yu KAIXIN DroneX Trade show precision prototype supplier +447419997587",
+    "raw_requirements": "时间: 2026-09-11 17:48:41 电话: +447419997587 WhatsApp: +447419997587 内容: Dear Sir/Madam. I am Jyoung from KAIXIN. Our team will attend DroneX Trade show, too. We are a precision prototype supplier. Could we discuss potential cooperation at your booth with your sales or engineering team? Thanks. Jyoung 无人机类型: Other Project Stage: Prototype Development IP: 36.227.232.118",
+    "fields_filled": {
+      "需求类型": "展会现场展台商务对接 (DroneX Trade Show Booth Meeting)",
+      "业务定位": "样件打样与精密五金外协供应链 (Precision Prototype Supplier)",
+      "飞行器形态": "Other (特种非标结构打样 / 展会交流)",
+      "研发阶段": "Prototype Development (样机研制阶段)",
+      "联系电话": "+447419997587 (英国 / WhatsApp)",
+      "核心诉求": "探讨 DroneX 展位现场与销售/工程团队会面及样件加工外协合作"
+    },
+    "jev_analysis": {
+      "tier": "TIER_1_READY_RFQ",
+      "maturity_score": 4.5,
+      "has_pet_confusion": false,
+      "confidence": 0.67,
+      "recommended_action": "高价值紧急 OEM/研发商机！涉及工业无人机核心动力总成匹配，立即由工程团队发送专属推力台架曲线、选型建议与 3D STEP 下载链接。",
+      "source": "jev_live",
+      "model": "jev-1.13.0"
+    }
+  }
+]

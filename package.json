@@ -1,0 +1,20 @@
+{
+  "name": "ipet-lead-hub",
+  "version": "1.0.0",
+  "description": "IPET SYSTEM Standalone Lead Assets Hub - Universal Multi-Channel Ingestion & AI Intent Tiering",
+  "main": "index.html",
+  "scripts": {
+    "test": "node tests/test_normalizer.js",
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "ipet",
+    "lead-hub",
+    "uav",
+    "typesafe-jev",
+    "crm"
+  ],
+  "author": "IPET SYSTEM",
+  "license": "UNLICENSED",
+  "devDependencies": {}
+}

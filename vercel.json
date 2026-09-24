@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "name": "ipet-lead-hub",
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "css/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "js/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "data/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/jev",
+      "dest": "/api/jev.js"
+    },
+    {
+      "src": "/api/sync",
+      "dest": "/api/sync.js"
+    },
+    {
+      "src": "/api/leads",
+      "dest": "/api/sync.js"
+    },
+    {
+      "src": "/api/ingest",
+      "dest": "/api/ingest.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, DELETE, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, X-Channel-Source" }
+      ]
+    }
+  ]
+}
