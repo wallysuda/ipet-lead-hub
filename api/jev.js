@@ -103,7 +103,7 @@ module.exports = async (req, res) => {
 
     // 动作 1: 线索意图分级与成熟度打分 (score_lead)
     if (action === 'score_lead') {
-      const leadText = (body.leadText || body.text || '').trim();
+      const leadText = (body.leadText || body.intent_text || body.text || '').trim();
       const email = (body.email || '').trim();
       const company = (body.company || '').trim();
       const jobTitle = (body.job_title || body.title || '').trim();
