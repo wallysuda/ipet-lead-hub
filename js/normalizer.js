@@ -125,10 +125,10 @@
       if (cleaned.includes("company") || cleaned.includes("org") || cleaned.includes("agency") || cleaned.includes("enterprise") || cleaned.includes("公司") || cleaned.includes("企业") || cleaned.includes("单位")) {
         return "company";
       }
-      if (cleaned.includes("mtow") || cleaned.includes("takeoffweight") || cleaned.includes("起飞重量")) {
+      if (cleaned.includes("mtow") || cleaned.includes("takeoffweight") || cleaned.includes("weight") || cleaned.includes("起飞重量")) {
         return "mtow";
       }
-      if (cleaned.includes("voltage") || cleaned.includes("母线电压") || cleaned.includes("工作电压") || cleaned.includes("电池电压")) {
+      if (cleaned.includes("voltage") || cleaned.includes("busvoltage") || cleaned.includes("母线电压") || cleaned.includes("工作电压") || cleaned.includes("电池电压")) {
         return "voltage";
       }
       if (cleaned.includes("payload") || cleaned.includes("载荷") || cleaned.includes("载重")) {
@@ -140,7 +140,7 @@
       if (cleaned.includes("propeller") || cleaned.includes("blade") || cleaned.includes("螺旋桨") || cleaned.includes("桨叶")) {
         return "propeller";
       }
-      if (cleaned.includes("airframe") || cleaned.includes("uavtype") || cleaned.includes("dronetype") || cleaned.includes("机型") || cleaned.includes("构型") || cleaned.includes("飞行器")) {
+      if (cleaned.includes("airframe") || cleaned.includes("uavtype") || cleaned.includes("dronetype") || cleaned.includes("coaxial") || cleaned.includes("机型") || cleaned.includes("构型") || cleaned.includes("飞行器")) {
         return "uav_type";
       }
       if (cleaned.includes("job") || cleaned.includes("title") || cleaned.includes("position") || cleaned.includes("职位") || cleaned.includes("职务") || cleaned.includes("头衔")) {
@@ -148,6 +148,9 @@
       }
       if (cleaned.includes("country") || cleaned.includes("region") || cleaned.includes("nation") || cleaned.includes("国家") || cleaned.includes("地区")) {
         return "country";
+      }
+      if (cleaned.includes("stage") || cleaned.includes("timeline") || cleaned.includes("阶段") || cleaned.includes("进度")) {
+        return "stage";
       }
       if (cleaned.includes("require") || cleaned.includes("need") || cleaned.includes("inquiry") || cleaned.includes("message") || cleaned.includes("comment") || cleaned.includes("note") || cleaned.includes("需求") || cleaned.includes("留言") || cleaned.includes("诉求") || cleaned.includes("备注")) {
         return "requirements";
@@ -355,7 +358,7 @@
         scenario = `${normalized.uav_type} 动力系统选型匹配`;
       }
 
-      return {
+      const finalLead = {
         id: leadId,
         submitted_at: raw.submitted_at || timeStr,
         channel_source: finalChannel,
@@ -392,6 +395,9 @@
         status: "NEW", // NEW, CONTACTED, IN_DISCUSSION, QUALIFIED, ARCHIVED
         sync_version: 1
       };
+
+      finalLead.analysis_brief = this.synthesizeAnalysis(finalLead);
+      return finalLead;
     },
 
     // 5. 自由非结构化文本/聊天记录智能 NLP 解析器
@@ -489,6 +495,172 @@
       }
 
       return results;
+    },
+
+    // 7. 询盘情况综合分析引擎（确保新入库线索首次展示即为专业结构化分析，绝不显示原始表单键值对）
+    synthesizeAnalysis: function (lead) {
+      if (!lead) return {};
+      const rawObj = lead.fields_filled || {};
+      const p = lead.technical_parameters || lead.detected_params || {};
+
+      // 若字段本身已是由中文分析键构成的结构化分析结果（如历史线索），直接返回过滤后的分析字段
+      const ANALYSIS_STANDARD_KEYS = ['采购诉求', '需求类型', '咨询产品', '业务类型', '业务定位', '飞行器形态', '起飞重量', '核心技术指标', '应用场景', '研发阶段', '交付物需求', '交付物诉求', '合作诉求', '合作意向'];
+      const isPreAnalyzed = Object.keys(rawObj).some(k => ANALYSIS_STANDARD_KEYS.includes(k));
+
+      const EXCLUDED_PROFILE_KEYS = new Set([
+        'your-name', 'name', 'fullname', 'first_name', 'last_name', '姓名', '客户姓名', '客户', '联系人',
+        'contact-email', 'email', 'e-mail', 'work_email', '邮箱', '电子邮箱', '企业邮箱',
+        'org-name', 'company', 'company_name', 'organization', '公司', '企业名称',
+        'phone', 'phone_number', 'mobile', 'tel', 'whatsapp', '电话', '联系电话', '手机',
+        'time', 'submitted_at', 'date', '时间', '接收时间',
+        'ip', 'ip_address', 'IP', 'IP地址', 'form_name', '表单名字', 'channel', '渠道', 'id'
+      ]);
+
+      if (isPreAnalyzed) {
+        const cleanObj = {};
+        for (const [k, v] of Object.entries(rawObj)) {
+          if (!EXCLUDED_PROFILE_KEYS.has(k) && !EXCLUDED_PROFILE_KEYS.has(k.toLowerCase()) && v) {
+            cleanObj[k] = v;
+          }
+        }
+        if (Object.keys(cleanObj).length > 0) {
+          return cleanObj;
+        }
+      }
+
+      // 对于所有新录入、Webhook 接入、CSV 批量导入的线索，自动进行首次深度意图与技术分析
+      const fullText = [
+        lead.name || '',
+        lead.company || '',
+        lead.job_title || '',
+        lead.raw_text || '',
+        lead.raw_requirements || '',
+        lead.channel_scenario || '',
+        Object.entries(rawObj).map(([k, v]) => `${k}: ${v}`).join(' ')
+      ].join(' ');
+      const textLower = fullText.toLowerCase();
+
+      const analyzed = {};
+
+      // 1. 采购诉求 / 业务定位 / 需求类型
+      if (textLower.includes('wire bonding') || textLower.includes('microelectronics') || textLower.includes('die attach') || textLower.includes('packaging supplier')) {
+        analyzed['业务类型'] = '微电子封装与组装外协对接 (Microelectronics Packaging Supplier)';
+        analyzed['合作诉求'] = '探讨引线键合 (Wire Bonding) 及芯片封装外协合作';
+      } else if (textLower.includes('dronex') || textLower.includes('kaixin') || textLower.includes('prototype supplier') || textLower.includes('booth')) {
+        analyzed['需求类型'] = '展会现场展台商务对接 (DroneX Trade Show Booth Meeting)';
+        analyzed['业务定位'] = '样件打样与精密五金外协供应链 (Precision Prototype Supplier)';
+      } else if (textLower.includes('i7') || textLower.includes('gremsy') || textLower.includes('gimbal')) {
+        analyzed['咨询产品'] = 'IPET I7 一体化动力系统 (电机 + 电调 + 螺旋桨)';
+        analyzed['技术诉求'] = '低电磁干扰 (Low EMI) 与云台低震动动力匹配';
+      } else if (textLower.includes('dyno') && (textLower.includes('coaxial') || textLower.includes('heavy-lift') || textLower.includes('heavy lift'))) {
+        const weightHint = p.mtow || (textLower.match(/(\d+\s*kg)/i) || [])[1] || '重载';
+        analyzed['采购诉求'] = `${weightHint} 共轴重载动力总成选型与实测台架曲线 (Dyno Data RFQ)`;
+      } else if (textLower.includes('ndaa') || textLower.includes('heavy lift') || textLower.includes('65kg') || textLower.includes('65 kg')) {
+        analyzed['采购诉求'] = `${p.mtow || '重载'} 工业飞行器动力总成与电调匹配 (NDAA 标称动力 RFQ)`;
+      } else if (textLower.includes('catalog') && (textLower.includes('wholesale') || textLower.includes('pricing') || textLower.includes('bulk'))) {
+        analyzed['采购诉求'] = '索取工业无人机动力目录、批发价目表及起订量 (Catalog & Wholesale Pricing)';
+      } else if (textLower.includes('procurement') || textLower.includes('purchasing') || textLower.includes('matzka') || textLower.includes('baaco')) {
+        analyzed['需求类型'] = '商业采购与技术规格对接 (Procurement RFQ)';
+        analyzed['咨询产品'] = 'IPET 工业级动力系统 (电机/电调总成与结构件匹配)';
+      } else if (lead.raw_requirements && lead.raw_requirements.length > 5) {
+        analyzed['采购诉求'] = lead.raw_requirements.slice(0, 70);
+      } else {
+        analyzed['采购诉求'] = 'IPET 工业无人机大载重动力系统选型与商务对接';
+      }
+
+      // 2. 飞行器形态
+      let uavType = p.uav_type || '';
+      if (!uavType) {
+        if (textLower.includes('coaxial') || textLower.includes('x8') || textLower.includes('共轴')) {
+          uavType = '共轴重载飞行平台 (Coaxial Multi-rotor)';
+        } else if (textLower.includes('vtol') || textLower.includes('垂直起降')) {
+          uavType = '垂直起降固定翼 (VTOL)';
+        } else if (textLower.includes('multirotor') || textLower.includes('多旋翼') || textLower.includes('quad') || textLower.includes('hexa') || textLower.includes('octo')) {
+          uavType = '多旋翼飞行平台 (Multirotor · Heavy Lift)';
+        } else if (textLower.includes('microelectronics')) {
+          uavType = '特种构型 (外协微电子与元器件组装)';
+        } else {
+          uavType = '工业级重载飞行器平台';
+        }
+      }
+      analyzed['飞行器形态'] = uavType;
+
+      // 3. 起飞重量 MTOW
+      let mtow = p.mtow || '';
+      if (!mtow) {
+        const mM = fullText.match(/(?:aircraft-weight|mtow|takeoff|weight|起飞重量|载重)[:：\s]+(\d+(?:\.\d+)?\s*(?:kg|公斤)?)/i) || fullText.match(/(\d+(?:\.\d+)?\s*kg\s*mtow)/i);
+        if (mM) mtow = mM[1].trim();
+      }
+      if (mtow && mtow.toUpperCase() !== 'N/A') {
+        analyzed['起飞重量'] = mtow.toLowerCase().includes('kg') ? (mtow.toLowerCase().includes('mtow') ? mtow : `${mtow} MTOW`) : `${mtow} kg MTOW`;
+      }
+
+      // 4. 核心技术指标
+      const specs = [];
+      let volt = p.voltage || '';
+      if (!volt) {
+        const vM = fullText.match(/(?:bus-voltage|voltage|母线电压|工作电压)[:：\s]+([^,\n\s]+)/i);
+        if (vM) volt = vM[1].trim();
+      }
+      if (volt) specs.push(`母线工作电压 ${volt}`);
+
+      if (p.thrust) specs.push(`额定/峰值推力 ${p.thrust}`);
+      if (p.payload) specs.push(`有效任务载荷 ${p.payload}`);
+      if (p.propeller) specs.push(`推荐桨叶 ${p.propeller}`);
+
+      if (textLower.includes('coaxial') || textLower.includes('x8')) specs.push('共轴动力驱动总成匹配');
+      if (textLower.includes('low emi') || textLower.includes('foc')) specs.push('FOC 超低电磁干扰 (Low EMI)');
+      if (textLower.includes('ipx6')) specs.push('工业防护等级 IPX6');
+      if (textLower.includes('ndaa')) specs.push('要求 NDAA 供应链合规');
+
+      if (specs.length > 0) {
+        analyzed['核心技术指标'] = specs.join(' / ');
+      }
+
+      // 5. 应用场景
+      let app = '';
+      if (textLower.includes('drone delivery') || textLower.includes('delivery') || textLower.includes('物流') || textLower.includes('配送')) {
+        app = '工业无人机物流配送 (Drone Delivery)';
+      } else if (textLower.includes('inspection') || textLower.includes('巡检') || textLower.includes('电力')) {
+        app = '电力与能源长航时工业巡检 (Inspection UAS)';
+      } else if (textLower.includes('agriculture') || textLower.includes('植保') || textLower.includes('spray')) {
+        app = '大载重农业植保飞防 (Agricultural Spraying)';
+      } else if (textLower.includes('microelectronics') || textLower.includes('packaging')) {
+        app = '微电子封装与五金元器件加工 (Microelectronics)';
+      } else if (textLower.includes('heavy lift') || textLower.includes('heavy-lift') || textLower.includes('重载')) {
+        app = '大载重工业无人飞行作业平台';
+      }
+      if (app) analyzed['应用场景'] = app;
+
+      // 6. 研发阶段 / 交付物需求
+      let stage = p.stage || '';
+      if (!stage) {
+        if (textLower.includes('flight test') || textLower.includes('flight-test') || textLower.includes('试飞')) {
+          stage = 'Flight Testing (试飞验证阶段)';
+        } else if (textLower.includes('prototype') || textLower.includes('bench test') || textLower.includes('打样') || textLower.includes('样机')) {
+          stage = 'Prototype Bench Testing (样机研制阶段)';
+        } else if (textLower.includes('concept') || textLower.includes('评估') || textLower.includes('可行性')) {
+          stage = 'Concept Evaluation (概念可行性评估阶段)';
+        }
+      }
+      if (stage) analyzed['研发阶段'] = stage;
+
+      // 7. 交付物诉求
+      const deliverables = [];
+      if (textLower.includes('dyno') || textLower.includes('thrust curve') || textLower.includes('台架')) {
+        deliverables.push('实测推力台架数据表 (Dyno Sheets)');
+      }
+      if (textLower.includes('step') || textLower.includes('cad') || textLower.includes('3d') || textLower.includes('模型')) {
+        deliverables.push('电机总成 3D STEP 安装模型');
+      }
+      if (textLower.includes('quote') || textLower.includes('pricing') || textLower.includes('rfq') || textLower.includes('报价') || textLower.includes('sample')) {
+        deliverables.push('样机测试报价与规格书');
+      }
+      if (deliverables.length > 0) {
+        analyzed['交付物诉求'] = deliverables.join('、');
+      }
+
+      return analyzed;
     }
   };
 

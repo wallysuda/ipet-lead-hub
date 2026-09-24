@@ -20,6 +20,14 @@
       "bus-voltage": "14S",
       "client-notes": "Need heavy-lift coaxial propulsion dyno data for drone delivery"
     },
+    "analysis_brief": {
+      "采购诉求": "40kg 共轴重载动力总成选型与实测台架曲线 (Dyno Data RFQ)",
+      "飞行器形态": "共轴八旋翼 (Coaxial X8)",
+      "起飞重量": "40kg MTOW",
+      "核心技术指标": "母线工作电压 14S / 共轴动力驱动总成匹配",
+      "应用场景": "工业无人机物流配送 (Drone Delivery)",
+      "交付物诉求": "实测推力台架数据表 (Dyno Sheets)"
+    },
     "detected_params": {
       "mtow": "40kg",
       "voltage": "14S",

@@ -165,6 +165,30 @@ Sarah Connor,s.connor@skyfleet.de,SkyFleet Systems,Germany,16kg,12S,Concept,Look
   assert.ok(!petBody.includes('MTOW'));
   console.log('  ✅ Disqualified persona boundary clarification verified!\n');
 
+  // ==========================================
+  // 测试 6: 首次入库线索结构化询盘简报生成 (绝不泄漏原始表单键名如 your-name)
+  // ==========================================
+  console.log('6. Testing Automatic First-Pass Inquiry Brief Synthesis...');
+  const webhookLead = {
+    "your-name": "Marcus Vance",
+    "contact-email": "m.vance@vancetech-aero.com",
+    "org-name": "VanceTech Aerospace",
+    "aircraft-weight": "40kg MTOW",
+    "bus-voltage": "14S",
+    "client-notes": "Need heavy-lift coaxial propulsion dyno data for drone delivery"
+  };
+  const normalizedWebhook = Normalizer.normalize(webhookLead, 'WordPress Webhook');
+  assert.ok(normalizedWebhook.analysis_brief, 'analysis_brief should be generated');
+  const briefKeys = Object.keys(normalizedWebhook.analysis_brief);
+  assert.ok(!briefKeys.includes('your-name'), 'Raw key your-name must not appear in brief');
+  assert.ok(!briefKeys.includes('contact-email'), 'Raw key contact-email must not appear in brief');
+  assert.ok(!briefKeys.includes('org-name'), 'Raw key org-name must not appear in brief');
+  assert.ok(briefKeys.includes('采购诉求') || briefKeys.includes('需求类型'), 'Should have 采购诉求 or 需求类型');
+  assert.ok(briefKeys.includes('飞行器形态'), 'Should have 飞行器形态');
+  assert.ok(briefKeys.includes('起飞重量'), 'Should have 起飞重量');
+  assert.ok(normalizedWebhook.analysis_brief['起飞重量'].includes('40kg'), 'MTOW should be 40kg');
+  console.log('  ✅ Automatic first-pass inquiry brief synthesis verified!\n');
+
   console.log('🎉 ALL TESTS PASSED SUCCESSFULLY! The core engine is bulletproof.');
 }
 
