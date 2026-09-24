@@ -132,14 +132,12 @@
     else el.syncStatusText.innerText = '就绪';
   }
 
-  // 渲染 KPI 统计指标
+  // 渲染 KPI 统计指标 (仅保留线索总数与 Tier 1 RFQ)
   function renderMetrics() {
     if (!window.syncService) return;
     const metrics = window.syncService.getMetrics();
     if (el.statTotalLeads) el.statTotalLeads.innerText = metrics.total;
     if (el.statTier1Count) el.statTier1Count.innerText = metrics.tier1;
-    if (el.statActiveChannels) el.statActiveChannels.innerText = metrics.channelsCount;
-    if (el.statPendingAction) el.statPendingAction.innerText = metrics.tier1 + metrics.tier2;
   }
 
   // 绑定模态框基础显示与关闭事件
@@ -282,7 +280,102 @@
     }
   }
 
-  // 渲染表格行 (简洁高可读，无 icon 与冗余标签)
+  // 综合解析线索中的采购需求与技术意图（还原独立前原貌，呈现结构化简报）
+  function synthesizeLeadFields(lead) {
+    const rawObj = lead.fields_filled || {};
+    const p = lead.technical_parameters || lead.detected_params || {};
+    const fullText = [
+      lead.name || '',
+      lead.company || '',
+      lead.job_title || '',
+      lead.raw_text || '',
+      lead.raw_requirements || '',
+      JSON.stringify(rawObj),
+      JSON.stringify(p)
+    ].join(' ');
+    const textLower = fullText.toLowerCase();
+
+    // 如果 fields_filled 已经高度结构化（且不包含 内容/时间/IP/电话 等无用杂项），直接采用
+    const hasRawKeys = ['内容', '时间', 'IP', '电话', 'WhatsApp', 'Message', '需求详情'].some(k => k in rawObj);
+    if (!hasRawKeys && Object.keys(rawObj).length >= 3) {
+      return { ...rawObj };
+    }
+
+    const analyzed = {};
+
+    // 1. 采购诉求 / 业务类型
+    if (textLower.includes('microelectronics') || textLower.includes('wire bonding') || textLower.includes('die attach')) {
+      analyzed['业务类型'] = '微电子封装与组装外协对接 (Microelectronics Packaging Supplier)';
+      analyzed['合作诉求'] = '探讨引线键合 (Wire Bonding) 及芯片封装外协合作';
+    } else if (textLower.includes('ndaa') || (textLower.includes('heavy lift') && textLower.includes('65'))) {
+      analyzed['采购诉求'] = '65kg 重载飞行器动力总成与电调匹配 (NDAA 标称动力 RFQ)';
+    } else if (textLower.includes('i7') || textLower.includes('gremsy')) {
+      analyzed['咨询产品'] = 'IPET I7 一体化动力系统 (电机 + 电调 + 螺旋桨)';
+    } else if (textLower.includes('dronex') || textLower.includes('kaixin') || textLower.includes('prototype supplier')) {
+      analyzed['需求类型'] = '展会现场展台商务对接 (DroneX Trade Show Booth Meeting)';
+      analyzed['业务定位'] = '样件打样与精密五金外协供应链 (Precision Prototype Supplier)';
+    } else if (textLower.includes('baaco') || textLower.includes('preeti')) {
+      analyzed['需求类型'] = '商业采购与规格对接 (Procurement RFQ)';
+      analyzed['咨询产品'] = 'IPET 工业级动力系统 (电机/电调总成与结构件匹配)';
+    } else if (textLower.includes('alhathboor') || textLower.includes('yusuf') || (textLower.includes('catalog') && textLower.includes('wholesale'))) {
+      analyzed['采购诉求'] = '索取产品目录、批发价目表及起订量 (Catalog & Wholesale Pricing)';
+    } else if (textLower.includes('procuring') || textLower.includes('procurement') || textLower.includes('matzka') || textLower.includes('scott ron')) {
+      analyzed['需求类型'] = '项目商业采购与技术规格对接 (Procurement & Specifications)';
+    } else {
+      analyzed['采购诉求'] = lead.raw_requirements ? lead.raw_requirements.slice(0, 60) : 'IPET 工业级无人机动力总成选型与商务对接';
+    }
+
+    // 2. 飞行器形态
+    const uavVal = p.uav_type || (rawObj['无人机类型'] || rawObj['UAV Type'] || '').trim();
+    if (uavVal) {
+      analyzed['飞行器形态'] = uavVal;
+    } else if (textLower.includes('multirotor')) {
+      analyzed['飞行器形态'] = textLower.includes('heavy lift') || textLower.includes('65') ? '重载多旋翼飞行平台 (Multirotor · Heavy Lift)' : '多旋翼飞行平台 (Multirotor)';
+    } else if (textLower.includes('vtol')) {
+      analyzed['飞行器形态'] = '垂直起降固定翼 (VTOL)';
+    } else if (textLower.includes('other')) {
+      analyzed['飞行器形态'] = 'Other (特种非标构型 / 载荷测试平台)';
+    }
+
+    // 3. 起飞重量 MTOW
+    const mtowVal = p.mtow || (rawObj['Target MTOW'] || rawObj['MTOW'] || rawObj['起飞重量'] || '').trim();
+    if (mtowVal && mtowVal.toUpperCase() !== 'N/A') {
+      analyzed['起飞重量'] = mtowVal.toLowerCase().includes('kg') ? mtowVal : `${mtowVal} kg MTOW`;
+    }
+
+    // 4. 核心技术指标
+    const specs = [];
+    if (p.voltage) specs.push(`母线电压 ${p.voltage}`);
+    if (p.payload) specs.push(`载荷 ${p.payload}`);
+    if (p.thrust) specs.push(`推力 ${p.thrust}`);
+    const propM = fullText.match(/(?:Propeller diameter|propeller)[:：\s~]+(\d+[\s-]+\d+\s*in|\d+\s*in)/i);
+    if (propM) specs.push(`推荐桨叶 ${propM[1]}`);
+    if (textLower.includes('ipx6')) specs.push('防护等级 IPX6');
+    if (textLower.includes('ndaa')) specs.push('要求 NDAA 供应链合规');
+    if (specs.length > 0) {
+      analyzed['核心技术指标'] = specs.join(' / ');
+    }
+
+    // 5. 应用场景
+    const appVal = (rawObj['Application'] || rawObj['应用场景'] || '').trim();
+    if (appVal.toLowerCase().includes('delivery') || textLower.includes('delivery')) {
+      analyzed['应用场景'] = '工业无人机物流配送 (Drone Delivery)';
+    } else if (appVal.toLowerCase().includes('microelectronics') || textLower.includes('microelectronics')) {
+      analyzed['应用场景'] = '微电子元器件组装 (Microelectronics Assembly)';
+    } else if (appVal && appVal.toLowerCase() !== 'other') {
+      analyzed['应用场景'] = appVal;
+    }
+
+    // 6. 研发阶段
+    const stageVal = p.stage || (rawObj['Project Stage'] || rawObj['研发阶段'] || rawObj['项目阶段'] || '').trim();
+    if (stageVal) {
+      analyzed['研发阶段'] = stageVal;
+    }
+
+    return analyzed;
+  }
+
+  // 渲染表格行 (简洁高可读，展示询盘情况分析简要，去除状态列)
   function renderTable(leads) {
     if (!el.leadsTableBody) return;
     el.leadsTableBody.innerHTML = '';
@@ -290,7 +383,7 @@
     if (leads.length === 0) {
       el.leadsTableBody.innerHTML = `
         <tr>
-          <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-dim);">
+          <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-dim);">
             无匹配线索资产
           </td>
         </tr>
@@ -318,23 +411,16 @@
       let channel = lead.channel_source || lead.channel || '官网独立站';
       channel = channel.replace(/[\(（].*?[\)）]/g, '').trim();
 
-      // 参数标签
-      const p = lead.technical_parameters || lead.detected_params || {};
-      const paramBadges = [];
-      if (p.mtow) paramBadges.push(`<span class="param-tag">${escapeHtml(p.mtow)}</span>`);
-      if (p.voltage) paramBadges.push(`<span class="param-tag">${escapeHtml(p.voltage)}</span>`);
-      if (p.uav_type) {
-        let uType = p.uav_type.replace(/[\(（].*?[\)）]/g, '').replace(/飞行平台|飞行器/g, '').trim();
-        paramBadges.push(`<span class="param-tag">${escapeHtml(uType)}</span>`);
-      }
-      if (p.payload) paramBadges.push(`<span class="param-tag">${escapeHtml(p.payload)}</span>`);
-      if (p.stage) {
-        let stg = p.stage.replace(/[\(（].*?[\)）]/g, '').trim();
-        paramBadges.push(`<span class="param-tag">${escapeHtml(stg)}</span>`);
-      }
-      const paramsHtml = paramBadges.length > 0 ? `<div class="params-inline">${paramBadges.join('')}</div>` : `<span style="color: var(--text-dim);">-</span>`;
+      // 询盘情况分析简要 (还原独立前原貌)
+      const analyzed = synthesizeLeadFields(lead);
+      const briefItems = Object.entries(analyzed).map(([k, v]) => `
+        <div class="analysis-brief-item">
+          <span class="analysis-label">${escapeHtml(k)}:</span> <span class="analysis-val">${escapeHtml(v)}</span>
+        </div>
+      `).join('');
+      const analysisHtml = briefItems ? `<div class="analysis-brief-box">${briefItems}</div>` : `<span style="color: var(--text-dim);">-</span>`;
 
-      // Jev 评级与画像 (无进度条)
+      // Jev 评级与画像
       const jev = lead.jev_analysis || {};
       const tier = jev.tier || 'TIER_3_EXPLORATORY';
       let tierClass = 'tier-3';
@@ -359,12 +445,8 @@
       else if (persona === 'TYPE_D_DISQUALIFIED') personaLabel = '业务边界回绝';
       else if (persona === 'TYPE_C_LOW_INFO') personaLabel = '初级意向';
 
-      // 状态
-      const status = lead.status || 'NEW';
-      const statusHtml = `<span class="status-tag ${status === 'CONTACTED' ? 'contacted' : ''}">${status === 'CONTACTED' ? '已跟进' : '待处理'}</span>`;
-
       tr.innerHTML = `
-        <td style="color: var(--text-dim); font-family: var(--font-mono);">
+        <td style="color: var(--text-dim); font-family: var(--font-mono); white-space: nowrap;">
           ${escapeHtml(timeStr)}
         </td>
         <td>
@@ -381,7 +463,7 @@
           <span class="channel-tag">${escapeHtml(channel)}</span>
         </td>
         <td>
-          ${paramsHtml}
+          ${analysisHtml}
         </td>
         <td>
           <div>
@@ -391,9 +473,6 @@
             </div>
             <div class="persona-text">${personaLabel}</div>
           </div>
-        </td>
-        <td>
-          ${statusHtml}
         </td>
         <td style="text-align: right;">
           <div class="action-buttons">
@@ -612,10 +691,10 @@
     el.emailModalClientTitle.innerText = `${currentEmailAnalysis.callName} (${currentEmailAnalysis.cleanEnglishCompany})`;
     el.emailModalClientSub.innerText = `${currentEmailAnalysis.industryProfile} · ${currentEmailAnalysis.product}`;
 
-    let personaTag = `<span class="tier-badge tier-1">商业无人机 OEM</span>`;
-    if (currentEmailAnalysis.persona === 'TYPE_A_ACADEMIC') personaTag = `<span class="tier-badge tier-2">高校/科研团队</span>`;
-    else if (currentEmailAnalysis.persona === 'TYPE_S_SUPPLIER') personaTag = `<span class="tier-badge tier-3">外协微电子/加工供应商</span>`;
-    else if (currentEmailAnalysis.persona === 'TYPE_D_DISQUALIFIED') personaTag = `<span class="tier-badge tier-disqualified">误触红线/非业务回绝</span>`;
+    let personaTag = `<span class="tier-pill tier-1">商业整机 OEM</span>`;
+    if (currentEmailAnalysis.persona === 'TYPE_A_ACADEMIC') personaTag = `<span class="tier-pill tier-2">高校科研团队</span>`;
+    else if (currentEmailAnalysis.persona === 'TYPE_S_SUPPLIER') personaTag = `<span class="tier-pill tier-3">外协供应链</span>`;
+    else if (currentEmailAnalysis.persona === 'TYPE_D_DISQUALIFIED') personaTag = `<span class="tier-pill tier-disqualified">业务边界回绝</span>`;
     el.emailModalPersonaBadge.innerHTML = personaTag;
 
     // 获取适用的 3 种策略切角

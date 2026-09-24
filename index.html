@@ -30,7 +30,7 @@
   <!-- 主体工作区 -->
   <main class="main-container">
 
-    <!-- KPI 统计卡片网格 -->
+    <!-- KPI 统计卡片网格 (仅保留线索总数和 Tier 1 RFQ) -->
     <section class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">线索总数</div>
@@ -40,16 +40,6 @@
       <div class="stat-card">
         <div class="stat-label">Tier 1 RFQ</div>
         <div class="stat-value" id="statTier1Count">--</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-label">渠道数量</div>
-        <div class="stat-value" id="statActiveChannels">--</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-label">待跟进商机</div>
-        <div class="stat-value" id="statPendingAction">--</div>
       </div>
     </section>
 
@@ -100,13 +90,12 @@
         <table class="lead-table" id="leadsTable">
           <thead>
             <tr>
-              <th style="width: 120px;">时间</th>
-              <th style="min-width: 200px;">客户 / 企业</th>
-              <th style="width: 140px;">渠道</th>
-              <th style="min-width: 180px;">技术参数</th>
-              <th style="width: 150px;">Jev 评级</th>
-              <th style="width: 80px;">状态</th>
-              <th style="width: 150px; text-align: right;">操作</th>
+              <th style="width: 110px;">时间</th>
+              <th style="min-width: 190px;">客户 / 企业</th>
+              <th style="width: 120px;">渠道</th>
+              <th style="min-width: 320px;">询盘情况分析简要</th>
+              <th style="width: 140px;">Jev 评级</th>
+              <th style="width: 140px; text-align: right;">操作</th>
             </tr>
           </thead>
           <tbody id="leadsTableBody">
@@ -220,45 +209,48 @@
     </div>
   </div>
 
-  <!-- 模态框 2: 跟进邮件生成器 -->
+  <!-- 模态框 2: 跟进邮件生成器 (左右双栏工作台) -->
   <div class="modal-overlay" id="modalEmail">
-    <div class="modal-container large">
+    <div class="modal-container email-modal-card">
       <div class="modal-header">
         <h3>跟进邮件生成</h3>
         <button class="modal-close-btn" data-close="modalEmail">&times;</button>
       </div>
 
-      <div class="modal-body">
-        <div style="background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <div style="font-size: 13px; font-weight: 600; color: var(--text-main);" id="emailModalClientTitle">--</div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="emailModalClientSub">--</div>
+      <!-- 顶部客户简要栏 -->
+      <div class="email-modal-brief-bar">
+        <div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-main);" id="emailModalClientTitle">--</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="emailModalClientSub">--</div>
+        </div>
+        <div id="emailModalPersonaBadge">--</div>
+      </div>
+
+      <!-- 左右双栏工作区 -->
+      <div class="email-modal-grid">
+        <!-- 左栏：策略切角与主题行 -->
+        <div class="email-col-left">
+          <div class="form-group">
+            <label class="form-label">1. 针对询盘特异性策略切角</label>
+            <div class="strategy-cards-container" id="emailStrategyCards"></div>
           </div>
-          <div id="emailModalPersonaBadge">--</div>
+
+          <div class="form-group">
+            <label class="form-label">2. 可选邮件主题行 (严格 35~50 字符)</label>
+            <div class="subject-list" id="emailSubjectList"></div>
+          </div>
         </div>
 
-        <!-- 1. 策略切角 -->
-        <div class="form-group">
-          <label class="form-label">策略切角</label>
-          <div class="strategy-cards-container" id="emailStrategyCards"></div>
-        </div>
-
-        <!-- 2. 主题行 -->
-        <div class="form-group">
-          <label class="form-label">主题行</label>
-          <div class="subject-list" id="emailSubjectList"></div>
-        </div>
-
-        <!-- 3. 正文预览与编辑 -->
-        <div class="form-group">
-          <label class="form-label">正文内容 (Pure English)</label>
+        <!-- 右栏：英文跟进正文 -->
+        <div class="email-col-right">
+          <label class="form-label">3. 英文跟进正文 (纯文本 · 可直接微调)</label>
           <textarea class="email-preview-box" id="emailBodyTextarea"></textarea>
         </div>
       </div>
 
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btnOpenMailto">客户端发送</button>
-        <button class="btn btn-primary" id="btnCopyEmail">复制邮件</button>
+        <button class="btn btn-primary" id="btnCopyEmail">复制完整主题与正文</button>
       </div>
     </div>
   </div>
