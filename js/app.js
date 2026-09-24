@@ -74,23 +74,18 @@
     toastContainer: document.getElementById('toastContainer')
   };
 
-  // Toast 通知辅助函数
+  // Toast 通知辅助函数 (简洁无 icon)
   function showToast(message, type = 'info') {
     if (!el.toastContainer) return;
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    let icon = 'ℹ️';
-    if (type === 'success') icon = '✅';
-    if (type === 'warn') icon = '⚠️';
-    if (type === 'error') icon = '❌';
-    toast.innerHTML = `<span>${icon}</span> <div>${message}</div>`;
+    toast.innerHTML = `<div>${message}</div>`;
     el.toastContainer.appendChild(toast);
     setTimeout(() => {
       toast.style.opacity = '0';
-      toast.style.transform = 'translateY(10px)';
-      toast.style.transition = 'all 0.3s ease';
-      setTimeout(() => toast.remove(), 300);
-    }, 4000);
+      toast.style.transition = 'opacity 0.25s ease';
+      setTimeout(() => toast.remove(), 250);
+    }, 3500);
   }
 
   // 初始化应用
@@ -283,11 +278,11 @@
 
     renderTable(currentFilteredLeads);
     if (el.tableCountSummary) {
-      el.tableCountSummary.innerText = `显示 ${currentFilteredLeads.length} / ${allLeads.length} 条线索`;
+      el.tableCountSummary.innerText = `${currentFilteredLeads.length} 条线索`;
     }
   }
 
-  // 渲染表格行
+  // 渲染表格行 (简洁高可读，无 icon 与冗余标签)
   function renderTable(leads) {
     if (!el.leadsTableBody) return;
     el.leadsTableBody.innerHTML = '';
@@ -295,141 +290,116 @@
     if (leads.length === 0) {
       el.leadsTableBody.innerHTML = `
         <tr>
-          <td colspan="7" style="text-align: center; padding: 48px; color: var(--text-muted);">
-            <div style="font-size: 24px; margin-bottom: 8px;">📭</div>
-            <div>没有符合筛选条件的线索资产</div>
+          <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-dim);">
+            无匹配线索资产
           </td>
         </tr>
       `;
       return;
     }
 
-    leads.forEach((lead, index) => {
+    leads.forEach((lead) => {
       const tr = document.createElement('tr');
 
-      // 时间
-      const timeStr = lead.submitted_at || (lead.created_at ? lead.created_at.replace('T', ' ').slice(0, 16) : '未知时间');
+      // 时间简写 (MM-DD HH:mm)
+      let timeStr = lead.submitted_at || (lead.created_at ? lead.created_at.replace('T', ' ').slice(0, 16) : '');
+      if (timeStr.length >= 16) {
+        timeStr = timeStr.slice(5, 16);
+      }
 
-      // 客户信息
+      // 客户信息 (纯文字，无 icon)
       let rawName = lead.name || '';
-      let cleanName = rawName.replace(/^(?:(?:IPET)?\s*(?:客户留言|客户姓名|客户|Contact|Name|Full Name|姓名)[:：\s]*)+/gi, '').trim() || '潜在客户';
-      let company = lead.company || 'Stealth / 未填写';
+      let cleanName = rawName.replace(/^(?:(?:IPET)?\s*(?:客户留言|客户姓名|客户|Contact|Name|Full Name|姓名)[:：\s]*)+/gi, '').trim() || '未命名';
+      let company = lead.company || '-';
       let job = lead.job_title || '';
-      let email = lead.email || '无邮箱留资';
-      let country = lead.country ? `[${lead.country}]` : '';
+      let email = lead.email || '';
 
-      // 渠道胶囊样式
-      const channel = lead.channel_source || lead.channel || '未知渠道';
-      let pillClass = 'pill-website';
-      if (channel.includes('LinkedIn')) pillClass = 'pill-linkedin';
-      else if (channel.includes('展会') || channel.includes('DroneX')) pillClass = 'pill-expo';
-      else if (channel.includes('供应商')) pillClass = 'pill-supplier';
-      else if (channel.includes('Google')) pillClass = 'pill-google';
-      else if (channel.includes('WhatsApp') || channel.includes('初聊')) pillClass = 'pill-direct';
+      // 渠道简写
+      let channel = lead.channel_source || lead.channel || '官网独立站';
+      channel = channel.replace(/[\(（].*?[\)）]/g, '').trim();
 
-      const scenario = lead.channel_scenario || lead.scenario || '动力系统选型匹配';
-
-      // 提取技术参数徽章
+      // 参数标签
       const p = lead.technical_parameters || lead.detected_params || {};
       const paramBadges = [];
-      if (p.uav_type) paramBadges.push(`<span class="param-badge highlight">${escapeHtml(p.uav_type)}</span>`);
-      if (p.mtow) paramBadges.push(`<span class="param-badge highlight">${escapeHtml(p.mtow)}</span>`);
-      if (p.voltage) paramBadges.push(`<span class="param-badge">${escapeHtml(p.voltage)}</span>`);
-      if (p.payload) paramBadges.push(`<span class="param-badge">${escapeHtml(p.payload)}</span>`);
-      if (p.thrust) paramBadges.push(`<span class="param-badge">${escapeHtml(p.thrust)}</span>`);
-      if (p.stage) paramBadges.push(`<span class="param-badge">${escapeHtml(p.stage)}</span>`);
+      if (p.mtow) paramBadges.push(`<span class="param-tag">${escapeHtml(p.mtow)}</span>`);
+      if (p.voltage) paramBadges.push(`<span class="param-tag">${escapeHtml(p.voltage)}</span>`);
+      if (p.uav_type) {
+        let uType = p.uav_type.replace(/[\(（].*?[\)）]/g, '').replace(/飞行平台|飞行器/g, '').trim();
+        paramBadges.push(`<span class="param-tag">${escapeHtml(uType)}</span>`);
+      }
+      if (p.payload) paramBadges.push(`<span class="param-tag">${escapeHtml(p.payload)}</span>`);
+      if (p.stage) {
+        let stg = p.stage.replace(/[\(（].*?[\)）]/g, '').trim();
+        paramBadges.push(`<span class="param-tag">${escapeHtml(stg)}</span>`);
+      }
+      const paramsHtml = paramBadges.length > 0 ? `<div class="params-inline">${paramBadges.join('')}</div>` : `<span style="color: var(--text-dim);">-</span>`;
 
-      // Jev 研判分级
+      // Jev 评级与画像 (无进度条)
       const jev = lead.jev_analysis || {};
       const tier = jev.tier || 'TIER_3_EXPLORATORY';
       let tierClass = 'tier-3';
-      let tierLabel = 'Tier 3 探讨';
+      let tierLabel = 'Tier 3';
       if (tier === 'TIER_1_READY_RFQ') {
         tierClass = 'tier-1';
-        tierLabel = 'Tier 1 RFQ';
+        tierLabel = 'Tier 1';
       } else if (tier === 'TIER_2_TECH_SPEC') {
         tierClass = 'tier-2';
-        tierLabel = 'Tier 2 规格';
+        tierLabel = 'Tier 2';
       } else if (tier === 'DISQUALIFIED') {
         tierClass = 'tier-disqualified';
-        tierLabel = '红线回绝';
+        tierLabel = '红线';
       }
 
-      const score = (typeof jev.maturity_score === 'number') ? jev.maturity_score.toFixed(1) : '2.0';
-      const scorePct = Math.min(100, Math.max(0, ((score - 1.0) / 4.0) * 100));
-      let scoreColor = '#38bdf8';
-      if (score >= 4.0) scoreColor = '#10b981';
-      else if (score < 2.0) scoreColor = '#ef4444';
+      const score = (typeof jev.maturity_score === 'number') ? jev.maturity_score.toFixed(1) : '-';
 
-      // 客户画像
       const persona = window.InquiryResponder ? window.InquiryResponder.classifyPersona(lead) : 'TYPE_C_LOW_INFO';
       let personaLabel = '商业整机 OEM';
-      if (persona === 'TYPE_A_ACADEMIC') personaLabel = '高校/科研';
+      if (persona === 'TYPE_A_ACADEMIC') personaLabel = '高校科研';
       else if (persona === 'TYPE_S_SUPPLIER') personaLabel = '外协供应链';
-      else if (persona === 'TYPE_D_DISQUALIFIED') personaLabel = '误触红线';
+      else if (persona === 'TYPE_D_DISQUALIFIED') personaLabel = '业务边界回绝';
       else if (persona === 'TYPE_C_LOW_INFO') personaLabel = '初级意向';
 
       // 状态
       const status = lead.status || 'NEW';
-      let statusBadge = `<span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38bdf8;">NEW</span>`;
-      if (status === 'CONTACTED') statusBadge = `<span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #34d399;">已跟进</span>`;
+      const statusHtml = `<span class="status-tag ${status === 'CONTACTED' ? 'contacted' : ''}">${status === 'CONTACTED' ? '已跟进' : '待处理'}</span>`;
 
       tr.innerHTML = `
-        <td style="color: var(--text-muted); font-size: 12px; font-family: var(--font-mono);">
-          ${timeStr}
+        <td style="color: var(--text-dim); font-family: var(--font-mono);">
+          ${escapeHtml(timeStr)}
         </td>
         <td>
           <div class="client-profile">
-            <div class="client-name-row">
+            <div class="client-main">
               <span class="client-name">${escapeHtml(cleanName)}</span>
-              ${job ? `<span class="client-job">${escapeHtml(job)}</span>` : ''}
-              ${country ? `<span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(country)}</span>` : ''}
+              ${job ? `<span class="client-job-inline">${escapeHtml(job)}</span>` : ''}
             </div>
-            <div class="client-comp-row">
-              <span>🏢 ${escapeHtml(company)}</span>
-            </div>
-            <div class="client-email">✉️ ${escapeHtml(email)}</div>
+            <div class="client-company">${escapeHtml(company)}</div>
+            ${email ? `<div class="client-email">${escapeHtml(email)}</div>` : ''}
           </div>
+        </td>
+        <td>
+          <span class="channel-tag">${escapeHtml(channel)}</span>
+        </td>
+        <td>
+          ${paramsHtml}
         </td>
         <td>
           <div>
-            <span class="channel-pill ${pillClass}">${escapeHtml(channel)}</span>
-            <span class="channel-scenario">${escapeHtml(scenario)}</span>
-          </div>
-        </td>
-        <td>
-          <div class="params-cloud">
-            ${paramBadges.length > 0 ? paramBadges.join('') : '<span style="color: var(--text-muted); font-size: 11px;">未明确具体参数</span>'}
-          </div>
-        </td>
-        <td>
-          <div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span class="tier-badge ${tierClass}">${tierLabel}</span>
-              <span style="font-size: 11px; color: var(--text-secondary);">${personaLabel}</span>
+            <div>
+              <span class="tier-pill ${tierClass}">${tierLabel}</span>
+              <span class="score-text">${score}</span>
             </div>
-            <div class="score-meter">
-              <div class="score-bar-bg">
-                <div class="score-bar-fill" style="width: ${scorePct}%; background: ${scoreColor};"></div>
-              </div>
-              <span class="score-val" style="color: ${scoreColor};">${score}</span>
-            </div>
+            <div class="persona-text">${personaLabel}</div>
           </div>
         </td>
         <td>
-          ${statusBadge}
+          ${statusHtml}
         </td>
         <td style="text-align: right;">
-          <div class="action-buttons" style="justify-content: flex-end;">
-            <button class="btn btn-primary btn-sm btn-action-email" data-id="${lead.id}" title="生成针对该客户的专属英文跟进邮件">
-              📧 跟进
-            </button>
-            <button class="btn btn-secondary btn-sm btn-action-detail" data-id="${lead.id}" title="查看完整无损表单与 AI 审计">
-              🔍 审计
-            </button>
-            <button class="btn btn-outline btn-sm btn-action-delete" data-id="${lead.id}" title="作废或删除" style="color: var(--accent-rose);">
-              🗑️
-            </button>
+          <div class="action-buttons">
+            <button class="btn btn-outline btn-sm btn-action-email" data-id="${lead.id}">跟进</button>
+            <button class="btn btn-outline btn-sm btn-action-detail" data-id="${lead.id}">详情</button>
+            <button class="btn btn-text btn-sm btn-action-delete" data-id="${lead.id}">删除</button>
           </div>
         </td>
       `;
@@ -543,7 +513,7 @@
         if (res.duplicate) {
           showToast(`查重提示: 已存在相同线索 (${res.reason})`, 'warn');
         } else {
-          showToast('🎉 新线索成功归一化并存入资产库！', 'success');
+          showToast('新线索已归一化并存入资产库', 'success');
           el.modalIngest.classList.remove('active');
         }
       });
@@ -567,7 +537,7 @@
         if (res.duplicate) {
           showToast(`查重提示: 已存在相同线索 (${res.reason})`, 'warn');
         } else {
-          showToast('🎉 文本实体提取完成并存入资产库！', 'success');
+          showToast('文本实体提取完成并存入资产库', 'success');
           el.freeTextInput.value = '';
           el.modalIngest.classList.remove('active');
         }
@@ -741,7 +711,7 @@
       el.btnCopyEmail.addEventListener('click', () => {
         const text = `Subject: ${selectedSubjectText}\n\n${el.emailBodyTextarea.value}`;
         navigator.clipboard.writeText(text).then(() => {
-          showToast('✅ 纯英文跟进邮件（包含主题行）已复制到剪贴板！', 'success');
+          showToast('纯英文跟进邮件（包含主题行）已复制到剪贴板', 'success');
         });
       });
     }
@@ -772,62 +742,62 @@
 
     el.leadDetailContent.innerHTML = `
       <!-- 基础卡片 -->
-      <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px 18px;">
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 14px 18px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
           <div>
-            <h4 style="font-size: 16px; color: var(--text-primary);">${escapeHtml(lead.name || '未命名')}</h4>
-            <div style="color: var(--text-secondary); font-size: 13px; margin-top: 2px;">
+            <h4 style="font-size: 15px; font-weight: 600; color: var(--text-main);">${escapeHtml(lead.name || '未命名')}</h4>
+            <div style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">
               ${escapeHtml(lead.job_title || '')} · <strong>${escapeHtml(lead.company || '未知企业')}</strong>
             </div>
-            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--accent-sky); margin-top: 4px;">
-              ✉️ ${escapeHtml(lead.email || '无邮箱')} ${lead.phone ? `· 📞 ${escapeHtml(lead.phone)}` : ''}
+            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--border-focus); margin-top: 4px;">
+              ${escapeHtml(lead.email || '-')} ${lead.phone ? `· ${escapeHtml(lead.phone)}` : ''}
             </div>
           </div>
           <div style="text-align: right;">
-            <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">ID: ${lead.id}</div>
-            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">接收时间: ${lead.submitted_at || lead.created_at || ''}</div>
+            <div style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">ID: ${lead.id}</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">接收时间: ${lead.submitted_at || lead.created_at || ''}</div>
           </div>
         </div>
       </div>
 
-      <!-- TypeSafe Jev 审计报告 -->
-      <div style="border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(14, 165, 233, 0.05); border-radius: var(--radius-sm); padding: 14px 18px;">
-        <h5 style="color: var(--accent-sky); font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-          <span>🤖</span> TypeSafe Jev (System One) 官方强类型审计报告
-        </h5>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px;">
-          <div><strong>分级判定:</strong> <span class="tier-badge ${jev.tier === 'TIER_1_READY_RFQ' ? 'tier-1' : 'tier-3'}">${jev.tier || 'TIER_3'}</span></div>
-          <div><strong>商业成熟度打分:</strong> <span style="font-family: var(--font-mono); color: var(--accent-green); font-weight: 600;">${jev.maturity_score || '--'} / 5.0</span></div>
-          <div><strong>置信度:</strong> <span style="font-family: var(--font-mono);">${(jev.confidence ? (jev.confidence * 100).toFixed(0) : '95')}%</span></div>
-          <div><strong>模型版本:</strong> <span style="font-family: var(--font-mono); color: var(--text-muted);">${jev.model || 'jev-latest'}</span></div>
-          <div><strong>研判源:</strong> <span style="font-family: var(--font-mono); color: var(--accent-sky);">${jev.source || 'jev_calibrated'}</span></div>
-          <div><strong>防宠物误触判定:</strong> <span>${jev.has_pet_confusion ? '⚠️ 存在宠物玩具歧义' : '✅ 正常航天工业'}</span></div>
+      <!-- TypeSafe Jev 研判报告 -->
+      <div style="border: 1px solid var(--border-subtle); background: var(--bg-input); border-radius: 4px; padding: 14px 18px;">
+        <div style="color: var(--border-focus); font-size: 13px; font-weight: 600; margin-bottom: 8px;">
+          TypeSafe Jev (System One) 判定报告
         </div>
-        <div style="margin-top: 10px; font-size: 12px; color: var(--text-primary); background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 4px;">
-          <strong>建议跟进动作:</strong> ${escapeHtml(jev.recommended_action || '根据标准选型表进行推进')}
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px;">
+          <div><span style="color: var(--text-muted);">分级判定:</span> <span class="tier-pill ${jev.tier === 'TIER_1_READY_RFQ' ? 'tier-1' : 'tier-3'}">${jev.tier || 'TIER_3'}</span></div>
+          <div><span style="color: var(--text-muted);">成熟度打分:</span> <span style="font-family: var(--font-mono); color: var(--color-green); font-weight: 600;">${jev.maturity_score || '--'} / 5.0</span></div>
+          <div><span style="color: var(--text-muted);">置信度:</span> <span style="font-family: var(--font-mono);">${(jev.confidence ? (jev.confidence * 100).toFixed(0) : '95')}%</span></div>
+          <div><span style="color: var(--text-muted);">模型版本:</span> <span style="font-family: var(--font-mono); color: var(--text-dim);">${jev.model || 'jev-latest'}</span></div>
+          <div><span style="color: var(--text-muted);">研判源:</span> <span style="font-family: var(--font-mono); color: var(--border-focus);">${jev.source || 'jev_calibrated'}</span></div>
+          <div><span style="color: var(--text-muted);">防误触判定:</span> <span>${jev.has_pet_confusion ? '存在宠物玩具歧义' : '正常工业航天'}</span></div>
+        </div>
+        <div style="margin-top: 10px; font-size: 12px; color: var(--text-main); background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 4px;">
+          <span style="color: var(--text-muted);">建议跟进动作:</span> ${escapeHtml(jev.recommended_action || '根据标准选型表进行推进')}
         </div>
       </div>
 
       <!-- 提取的飞行技术参数 -->
       <div>
-        <h5 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">📐 结构化提取工程参数:</h5>
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; background: var(--bg-secondary); padding: 12px; border-radius: var(--radius-sm); font-size: 12px;">
-          <div><strong>飞行器形态:</strong> ${escapeHtml(p.uav_type || '未明确')}</div>
-          <div><strong>起飞重量 (MTOW):</strong> ${escapeHtml(p.mtow || '未明确')}</div>
-          <div><strong>工作母线电压:</strong> ${escapeHtml(p.voltage || '未明确')}</div>
-          <div><strong>有效任务载荷:</strong> ${escapeHtml(p.payload || '未明确')}</div>
-          <div><strong>推力要求:</strong> ${escapeHtml(p.thrust || '未明确')}</div>
-          <div><strong>研发推进阶段:</strong> ${escapeHtml(p.stage || '未明确')}</div>
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">提取工程参数</div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 12px; border-radius: 4px; font-size: 12px;">
+          <div><span style="color: var(--text-muted);">飞行器形态:</span> ${escapeHtml(p.uav_type || '-')}</div>
+          <div><span style="color: var(--text-muted);">起飞重量 (MTOW):</span> ${escapeHtml(p.mtow || '-')}</div>
+          <div><span style="color: var(--text-muted);">工作母线电压:</span> ${escapeHtml(p.voltage || '-')}</div>
+          <div><span style="color: var(--text-muted);">有效任务载荷:</span> ${escapeHtml(p.payload || '-')}</div>
+          <div><span style="color: var(--text-muted);">推力要求:</span> ${escapeHtml(p.thrust || '-')}</div>
+          <div><span style="color: var(--text-muted);">研发推进阶段:</span> ${escapeHtml(p.stage || '-')}</div>
         </div>
       </div>
 
       <!-- 100% 无损留存的原始表单字段 -->
       <div>
-        <h5 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">📋 无损留存原始表单键值 (Fields Filled):</h5>
-        <div style="max-height: 180px; overflow-y: auto; background: #0d1117; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 14px; font-family: var(--font-mono); font-size: 12px;">
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">原始表单数据 (Fields Filled)</div>
+        <div style="max-height: 180px; overflow-y: auto; background: #090d14; border: 1px solid var(--border-subtle); border-radius: 4px; padding: 10px 14px; font-family: var(--font-mono); font-size: 12px;">
           ${Object.entries(fields).map(([k, v]) => `
-            <div style="margin-bottom: 6px; border-bottom: 1px solid rgba(55,65,81,0.3); padding-bottom: 4px;">
-              <span style="color: var(--accent-sky);">${escapeHtml(k)}:</span>
+            <div style="margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px;">
+              <span style="color: var(--border-focus);">${escapeHtml(k)}:</span>
               <span style="color: #e5e7eb; margin-left: 6px;">${escapeHtml(String(v))}</span>
             </div>
           `).join('')}
@@ -845,7 +815,7 @@
         const key = el.settingApiKey?.value.trim();
         if (window.jevEngine) {
           window.jevEngine.setApiKey(key);
-          showToast('TypeSafe API Key 配置已保存！', 'success');
+          showToast('TypeSafe API Key 配置已保存', 'success');
         }
         el.modalSettings.classList.remove('active');
       });
@@ -857,7 +827,7 @@
         try {
           const res = await window.jevEngine.scoreLeadIntent('65kg MTOW heavy lift VTOL propulsion RFQ');
           if (res && res.tier) {
-            showToast(`✅ Jev 研判成功! 输出: ${res.tier}, 成熟度: ${res.maturity_score} (源: ${res.source})`, 'success');
+            showToast(`Jev 研判成功: 输出 ${res.tier}, 成熟度 ${res.maturity_score} (源: ${res.source})`, 'success');
           } else {
             showToast('Jev 响应异常，请检查网络或密钥', 'warn');
           }
