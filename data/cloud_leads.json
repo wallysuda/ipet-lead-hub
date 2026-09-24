@@ -1,7 +1,7 @@
 [
   {
-    "id": "LEAD-HUB-1790240534568-155",
-    "submitted_at": "2026-09-24 17:02",
+    "id": "LEAD-HUB-1790240886544-427",
+    "submitted_at": "2026-09-24 17:08",
     "channel_source": "外部官网 WordPress Webhook",
     "channel_scenario": "40kg 重载无人机动力总成选型",
     "name": "Marcus Vance",
@@ -46,13 +46,13 @@
       "tier": "TIER_1_READY_RFQ",
       "maturity_score": 4.5,
       "has_pet_confusion": false,
-      "confidence": 0.68,
+      "confidence": 0.67,
       "recommended_action": "高价值紧急 OEM/研发商机！涉及工业无人机核心动力总成匹配，立即由工程团队发送专属推力台架曲线、选型建议与 3D STEP 下载链接。",
       "probabilities": {
-        "DISQUALIFIED": 0,
         "TIER_3_EXPLORATORY": 0.04,
-        "TIER_2_TECH_SPEC": 0.2,
-        "TIER_1_READY_RFQ": 0.76
+        "TIER_2_TECH_SPEC": 0.21,
+        "DISQUALIFIED": 0,
+        "TIER_1_READY_RFQ": 0.75
       },
       "source": "jev_live",
       "model": "jev-1.13.0",
@@ -62,7 +62,7 @@
       }
     },
     "created_at": "2026-09-24T09:02:15.609Z",
-    "updated_at": "2026-09-24T09:02:15.613Z"
+    "updated_at": "2026-09-24T09:08:07.807Z"
   },
   {
     "id": "LEAD-CSV-1790219306961-1",
