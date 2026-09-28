@@ -61,6 +61,7 @@
     leadTierFilter: document.getElementById('leadTierFilter'),
     leadSortSelect: document.getElementById('leadSortSelect'),
     btnExportCsv: document.getElementById('btnExportCsv'),
+    btnCopyEnrollLink: document.getElementById('btnCopyEnrollLink'),
 
     // Batch + funnel
     batchBar: document.getElementById('batchBar'),
@@ -344,6 +345,36 @@
     else el.authBar.setAttribute('hidden', '');
   }
 
+  /**
+   * 一键开通链接：https://site/#t=TOKEN
+   * 打开后自动写入 localStorage 并清掉 hash，避免令牌进服务端日志。
+   */
+  function tryEnrollFromUrl() {
+    try {
+      const hash = window.location.hash || '';
+      const m = hash.match(/[#&](?:t|token|enroll)=([^&]+)/i);
+      if (!m) return false;
+      const token = decodeURIComponent(m[1]).trim();
+      if (!token) return false;
+      setHubToken(token);
+      // 立刻清掉地址栏中的令牌
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      } else {
+        window.location.hash = '';
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function buildEnrollLink() {
+    const token = getHubToken();
+    if (!token) return '';
+    return `${window.location.origin}${window.location.pathname}#t=${encodeURIComponent(token)}`;
+  }
+
   function bindAuthEvents() {
     if (el.btnSaveHubToken) {
       el.btnSaveHubToken.addEventListener('click', async () => {
@@ -370,6 +401,23 @@
       showAuthBar(true);
       showToast('需要访问令牌才能读写云端线索', 'warn');
     });
+
+    if (el.btnCopyEnrollLink) {
+      el.btnCopyEnrollLink.addEventListener('click', async () => {
+        const link = buildEnrollLink();
+        if (!link) {
+          showToast('当前尚未接入云端，请先保存访问令牌', 'warn');
+          showAuthBar(true);
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(link);
+          showToast('开通链接已复制。发给同事，点开即自动接入，无需再粘贴令牌', 'success');
+        } catch (e) {
+          window.prompt('复制此开通链接发给同事：', link);
+        }
+      });
+    }
   }
 
   // Toast 通知辅助函数 (纯文字，无任何 Icon/Emoji)
@@ -395,11 +443,17 @@
     bindToolbarEvents();
     bindBatchEvents();
 
+    // 一键开通链接：#t=TOKEN 自动入账，无需手动粘贴
+    const enrolled = tryEnrollFromUrl();
+
     // 同步令牌到全局，供 sync/jev 使用
     const existing = getHubToken();
     if (existing) {
       window.IPET_HUB_TOKEN = existing;
       showAuthBar(false);
+      if (enrolled) {
+        showToast('已通过开通链接接入云端，后续打开无需再填令牌', 'success');
+      }
     } else {
       showAuthBar(true);
     }
