@@ -1307,6 +1307,7 @@
         const modalId = btn.getAttribute('data-close');
         const modal = document.getElementById(modalId);
         if (modal) modal.classList.remove('active');
+        document.body.classList.remove('modal-open');
       });
     });
 
@@ -1314,6 +1315,7 @@
       overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
           overlay.classList.remove('active');
+          document.body.classList.remove('modal-open');
         }
       });
     });
@@ -1405,6 +1407,9 @@
     renderEmailStrategies(strategies);
 
     el.modalEmail.classList.add('active');
+    document.body.classList.add('modal-open');
+    const scrollBox = document.getElementById('emailModalScroll');
+    if (scrollBox) scrollBox.scrollTop = 0;
   }
 
   function renderDecisionCard(card, validity, intent) {
@@ -1591,6 +1596,7 @@
         }
         showToast('已标记 Pass 并归档，不生成外发邮件', 'success');
         if (el.modalEmail) el.modalEmail.classList.remove('active');
+        document.body.classList.remove('modal-open');
         refreshVisibleTable();
       });
     }
@@ -1607,6 +1613,7 @@
         showToast('已标记「已跟进」，漏斗进度已更新', 'success');
         refreshVisibleTable();
         if (el.modalEmail) el.modalEmail.classList.remove('active');
+        document.body.classList.remove('modal-open');
       });
     }
 

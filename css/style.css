@@ -766,6 +766,11 @@ body {
 }
 
 /* 模态框通用 */
+body.modal-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -782,6 +787,8 @@ body {
   pointer-events: none;
   transition: opacity 0.15s ease;
   padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modal-overlay.active {
@@ -795,11 +802,12 @@ body {
   border-radius: 8px;
   width: 100%;
   max-width: 720px;
-  max-height: 90vh;
+  max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: var(--shadow-md);
+  margin: auto;
 }
 
 .modal-container.large {
@@ -810,7 +818,33 @@ body {
 .modal-container.email-modal-card {
   max-width: 1060px;
   width: 92vw;
-  height: 86vh;
+  height: min(860px, calc(100vh - 40px));
+  max-height: calc(100vh - 40px);
+}
+
+/* 弹窗中部：唯一滚动区，滚轮不再穿透到主页面 */
+.email-modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.email-modal-scroll .decision-card,
+.email-modal-scroll .enrich-panel,
+.email-modal-scroll .email-modal-grid {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+
+.email-modal-scroll .no-send-banner {
+  margin-left: 16px;
+  margin-right: 16px;
 }
 
 .modal-header {
@@ -874,17 +908,16 @@ body {
   display: grid;
   grid-template-columns: 390px 1fr;
   gap: 18px;
-  align-items: stretch;
-  flex: 1;
-  min-height: 0;
-  padding: 18px 20px;
-  overflow: hidden;
+  align-items: start;
+  min-height: 220px;
+  padding: 4px 0 16px;
+  overflow: visible;
 }
 
 @media (max-width: 900px) {
   .email-modal-grid {
     grid-template-columns: 1fr;
-    overflow-y: auto;
+    overflow: visible;
   }
 }
 
