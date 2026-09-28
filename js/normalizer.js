@@ -121,6 +121,14 @@
   const SmartSchemaNormalizer = {
     // 1. 语义识别键名匹配 (优先精确匹配，再进行特异性关键词定向与长词优先匹配)
     detectEntityField: function (rawKey) {
+      const rawLower0 = String(rawKey || '').toLowerCase().trim();
+      // First/Last name 必须优先于 name 精确匹配，否则会被 name 别名吃掉
+      if (/^(first[\s_-]*name|given[\s_-]*name|姓)$/i.test(rawLower0) || rawLower0.includes('first name')) {
+        return 'first_name';
+      }
+      if (/^(last[\s_-]*name|family[\s_-]*name|surname|名)$/i.test(rawLower0) || rawLower0.includes('last name') || rawLower0.includes('family name')) {
+        return 'last_name';
+      }
       const cleaned = cleanKey(rawKey);
       if (!cleaned) return null;
       // 原始全文 / 载荷正文不是实体字段
@@ -188,7 +196,7 @@
       }
       // 应用场景 / 动力需求 / 项目说明 → requirements
       if (
-        cleaned.includes("application") || cleaned.includes("usecase") || cleaned.includes("industry") ||
+        cleaned.includes("challenge") || cleaned.includes("application") || cleaned.includes("usecase") || cleaned.includes("industry") ||
         cleaned.includes("propulsion") || cleaned.includes("require") || cleaned.includes("need") ||
         cleaned.includes("inquiry") || cleaned.includes("message") || cleaned.includes("comment") ||
         cleaned.includes("detail") || cleaned.includes("note") || cleaned.includes("about") ||
@@ -196,6 +204,12 @@
         cleaned.includes("用途") || cleaned.includes("应用场景")
       ) {
         return "requirements";
+      }
+      if (wordHit('firstname') || cleaned === 'firstname' || cleaned === 'first_name' || rawLower.includes('first name') || cleaned.includes('firstname') || cleaned.includes('姓')) {
+        return "first_name";
+      }
+      if (wordHit('lastname') || cleaned === 'lastname' || cleaned === 'last_name' || rawLower.includes('last name') || cleaned.includes('lastname') || cleaned.includes('名') && cleaned.includes('姓') === false && rawLower.includes('last')) {
+        return "last_name";
       }
       if (cleaned.includes("name") || cleaned.includes("姓名") || cleaned.includes("联系人") || cleaned.includes("称呼") || cleaned === "contact") {
         return "name";
@@ -377,7 +391,7 @@
       let finalName = normalized.name || "";
       finalName = finalName.replace(/^(?:(?:IPET)?\s*(?:客户留言|客户姓名|客户|Contact|Name|Full Name|姓名)[:：\s]*)+/gi, "").trim();
       if (!finalName || isInvalidCustomerName(finalName)) {
-        finalName = extractHumanNameFromEmail(normalized.email) || "Partner";
+        finalName = extractHumanNameFromEmail(normalized.email) || "";
       }
 
       // 清洗企业名
@@ -422,12 +436,13 @@
         channel_scenario: scenario,
         name: finalName,
         email: (normalized.email || "").toLowerCase().trim(),
-        company: finalCompany || "Individual / Stealth Program",
+        company: finalCompany || "",
         job_title: normalized.job_title || "",
         phone: normalized.phone || "",
         country: normalized.country || "",
-        raw_text: fullText,
-        raw_requirements: normalized.requirements || fullText,
+        // raw_text 保留原始粘贴；需求为空时绝不用 key:value 全文冒充需求
+        raw_text: raw["原始自由文本"] || raw.raw_text || raw.text || fullText,
+        raw_requirements: normalized.requirements || "",
         fields_filled: fieldsFilled,
         detected_params: {
           mtow: normalized.mtow || extractedParams.mtow || "",
@@ -490,7 +505,13 @@
         }
       }
       if (reqParts.length && !raw["需求描述"]) {
-        raw["需求描述"] = reqParts.join('\n');
+        raw["需求描述"] = reqParts.join('\n').replace(/^[\s]*原始自由文本[:：]?\s*/,'').trim();
+      }
+      // First Name + Last Name 合并
+      if (!raw["客户姓名"] && (raw["first_name"] || raw["last_name"])) {
+        raw["客户姓名"] = `${raw["first_name"] || ''} ${raw["last_name"] || ''}`.trim();
+      } else if (raw["客户姓名"] && raw["last_name"] && !String(raw["客户姓名"]).includes(String(raw["last_name"]))) {
+        raw["客户姓名"] = `${raw["客户姓名"]} ${raw["last_name"]}`.trim();
       }
 
       // 5.2 表格式粘贴：首行表头 + 后续一行数据（Tab / 多空格）
@@ -558,8 +579,22 @@
         const leftover = text
           .replace(/^[^\n:：=]{1,80}[:：=].*$/gm, '')
           .replace(/[\w.+-]+@[\w.-]+\.\w+/g, '')
+          .replace(/^\s*原始自由文本[:：]?\s*/,'')
           .trim();
         if (leftover.length > 15) raw["需求描述"] = leftover.slice(0, 4000);
+        else if (!raw["需求描述"] && kvHit === 0 && text.length > 15) {
+          // 完全无 key:value 时才保留原文，并去掉标题噪音
+          raw["需求描述"] = text.replace(/^\s*(linkedin lead gen form|ipet system lead form)\s*$/gim,'').trim().slice(0,4000);
+        }
+      }
+
+      // 需求若只剩表单标题噪音，视为空
+      if (raw["需求描述"]) {
+        const reqLines = String(raw["需求描述"]).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        const noiseOnly = reqLines.length > 0 && reqLines.every(l =>
+          /^(linkedin lead gen form|ipet system lead form|facebook lead form|lead gen form)\s*$/i.test(l)
+        );
+        if (noiseOnly) raw["需求描述"] = '';
       }
 
       // 姓名统一清洗：去邮箱、尖括号、多余空白；拒绝整段正文误入
@@ -580,6 +615,8 @@
     _entityToRawKey: function (entity) {
       const map = {
         name: '客户姓名',
+        first_name: 'first_name',
+        last_name: 'last_name',
         email: '电子邮箱',
         company: '公司名称',
         job_title: '职位',
@@ -729,7 +766,7 @@
       } else if (lead.raw_requirements && lead.raw_requirements.length > 5) {
         analyzed['采购诉求'] = lead.raw_requirements.slice(0, 70);
       } else {
-        analyzed['采购诉求'] = 'IPET 工业无人机大载重动力系统选型与商务对接';
+        analyzed['采购诉求'] = '原表单未填写明确需求（待补全）';
       }
 
       // 2. 飞行器形态
@@ -744,10 +781,10 @@
         } else if (textLower.includes('microelectronics')) {
           uavType = '特种构型 (外协微电子与元器件组装)';
         } else {
-          uavType = '工业级重载飞行器平台';
+          uavType = '';
         }
       }
-      analyzed['飞行器形态'] = uavType;
+      if (uavType) analyzed['飞行器形态'] = uavType;
 
       // 3. 起飞重量 MTOW
       let mtow = p.mtow || '';

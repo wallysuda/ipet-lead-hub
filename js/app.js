@@ -1032,10 +1032,15 @@
     } else if (textLower.includes('procurement') || textLower.includes('purchasing') || textLower.includes('matzka') || textLower.includes('baaco')) {
       analyzed['需求类型'] = '商业采购与技术规格对接 (Procurement RFQ)';
       analyzed['咨询产品'] = 'IPET 工业级动力系统 (电机/电调总成与结构件匹配)';
-    } else if (lead.raw_requirements && lead.raw_requirements.length > 5) {
+    } else if (lead.raw_requirements && lead.raw_requirements.length > 5 && !/原始自由文本|linkedin lead gen form|ipet system lead form/i.test(lead.raw_requirements)) {
       analyzed['采购诉求'] = lead.raw_requirements.slice(0, 70);
+    } else if (lead.raw_text && lead.raw_text.length > 15 && !/^(linkedin lead gen form|ipet system lead form)\s*$/i.test(String(lead.raw_text).trim())) {
+      const rt = String(lead.raw_text).replace(/\s+/g,' ').replace(/原始自由文本:?/g,'').trim();
+      if (rt.length > 15) analyzed['采购诉求'] = rt.slice(0, 70);
+      else analyzed['采购诉求'] = '原表单未填写明确需求（待补全）';
     } else {
-      analyzed['采购诉求'] = 'IPET 工业无人机大载重动力系统选型与商务对接';
+      analyzed['采购诉求'] = '原表单未填写明确需求（待补全）';
+      analyzed['解析状态'] = '身份/需求字段缺失，请核对粘贴原文或手动补全';
     }
 
     // 2. 飞行器形态
@@ -1049,11 +1054,9 @@
         uavType = '多旋翼飞行平台 (Multirotor · Heavy Lift)';
       } else if (textLower.includes('microelectronics')) {
         uavType = '特种构型 (外协微电子与元器件组装)';
-      } else {
-        uavType = '工业级重载飞行器平台';
       }
     }
-    analyzed['飞行器形态'] = uavType;
+    if (uavType) analyzed['飞行器形态'] = uavType;
 
     // 3. 起飞重量 MTOW
     let mtow = p.mtow || '';
