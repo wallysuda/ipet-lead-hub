@@ -99,6 +99,13 @@ const InquiryResponder = {
 
   // 1. 深度解析提取客户与询盘实体 (Deep Inquiry Entity Extraction)
   analyzeLead: function (lead) {
+    const routing = (typeof window !== 'undefined' && window.ACCOUNT_ROUTING) ||
+      (typeof require !== 'undefined' ? (() => {
+        try { return require('./account_routing.js'); } catch (e) {
+          try { return require('../js/account_routing.js'); } catch (e2) { return { accounts: [] }; }
+        }
+      })() : { accounts: [] });
+
     const email = (lead.email || "").toLowerCase();
     const rawRequirements = lead.raw_requirements || lead.requirements || "";
     const rawText = ((lead.raw_text || "") + " " + rawRequirements + " " + JSON.stringify(lead.fields_filled || {}) + " " + (lead.form_name || lead.channel || "") + " " + (lead.job_title || "")).toLowerCase();
@@ -138,42 +145,39 @@ const InquiryResponder = {
     }
     let compShort = cleanEnglishCompany.replace(/\s+(Incorporated|Inc\.?|Corporation|Corp\.?|LLC|Ltd\.?|Co\.?)\b/gi, '').trim() || cleanEnglishCompany;
 
-    // 行业画像与产品
-    let industryProfile = "工业无人机整机/系统集成商";
+    // 行业画像与产品（账号路由来自 account_routing.js 配置，禁止在此硬编码公司名）
+    let industryProfile = (routing.default_industry_profile) || '工业无人机整机/系统集成商';
     let isGimbalPayload = false;
     let isTradeShowMeeting = rawText.includes("dronex") || rawText.includes("trade show") || rawText.includes("booth") || rawText.includes("exhibition") || rawText.includes("展会") || rawText.includes("展台");
     let isPrototypeSupplier = rawText.includes("prototype supplier") || rawText.includes("precision prototype") || rawText.includes("kxprecision") || rawText.includes("kaixin");
     let isSupplierPitch = persona === "TYPE_S_SUPPLIER";
 
-    if (email.includes("gremsy") || rawText.includes("gremsy") || company.toLowerCase().includes("gremsy")) {
-      company = "Gremsy Joint Stock Company";
-      cleanEnglishCompany = "Gremsy";
-      compShort = "Gremsy";
-      industryProfile = "全球知名航测/工业无人机三轴云台与载荷制造商 (Gremsy)";
-      isGimbalPayload = true;
-    } else if (email.includes("matzka") || rawText.includes("matzka") || company.toLowerCase().includes("matzka")) {
-      company = "Matzka Incorporated";
-      cleanEnglishCompany = "Matzka Incorporated";
-      compShort = "Matzka";
-      industryProfile = "商业无人机整机研发与商业采购 (OEM Drone Program & Sourcing)";
-    } else if (email.includes("baaco") || rawText.includes("baaco") || company.toLowerCase().includes("baaco")) {
-      company = "Baaco Aluminum";
-      cleanEnglishCompany = "Baaco Aluminum";
-      compShort = "Baaco Aluminum";
-      industryProfile = "工业五金与航空级铝合金构件制造 (Baaco Aluminum)";
-    } else if (email.includes("soaringaero") || company.toLowerCase().includes("soaring aerospace")) {
-      company = "Soaring Aerospace";
-      cleanEnglishCompany = "Soaring Aerospace";
-      compShort = "Soaring Aerospace";
-      industryProfile = "重载多旋翼物流无人机整机研发 (Heavy-Lift Drone Delivery)";
-    } else if (email.includes("firstlevelinc") || company.toLowerCase().includes("first level") || isSupplierPitch) {
-      company = cleanEnglishCompany || "First level Inc.";
-      industryProfile = "精密微电子封装与引线键合外协供应商 (Microelectronics Packaging)";
-      isSupplierPitch = true;
-    } else if (email.includes(".edu") || email.includes(".ac.") || rawText.includes("university") || rawText.includes("lab")) {
-      industryProfile = "高校航天与飞行器控制科研团队 (Academic R&D)";
-    } else if (rawText.includes("cargo") || rawText.includes("logistics") || rawText.includes("heavy lift") || rawText.includes("65kg") || rawText.includes("50kg")) {
-      industryProfile = "大载重货运/重载物流无人机 OEM";
+    const haystack = `${email} ${rawText} ${company}`.toLowerCase();
+    const accounts = (routing.accounts || []);
+    const matched = accounts.find(acc => (acc.match || []).some(m => haystack.includes(String(m).toLowerCase())));
+
+    if (matched) {
+      if (matched.company_display) {
+        company = matched.company_display;
+        cleanEnglishCompany = matched.company_display;
+      }
+      if (matched.company_short) {
+        compShort = matched.company_short;
+      }
+      industryProfile = matched.industry_profile || industryProfile;
+      const flags = matched.flags || {};
+      if (flags.is_gimbal_payload) isGimbalPayload = true;
+      if (flags.is_supplier_pitch) isSupplierPitch = true;
+    } else {
+      const academic = (routing.academic_match || []).some(m => haystack.includes(String(m).toLowerCase()));
+      if (academic) {
+        industryProfile = routing.academic_profile || industryProfile;
+      } else {
+        const heavy = (routing.heavy_cargo_keywords || []).some(m => haystack.includes(String(m).toLowerCase()));
+        if (heavy) {
+          industryProfile = routing.heavy_cargo_profile || industryProfile;
+        }
+      }
     }
 
     // 产品识别 (UI 中文 + 邮件用纯英文)
@@ -238,7 +242,7 @@ const InquiryResponder = {
     let projectStage = "新机型评估与研发";
     let englishStage = "prototype development";
     let stageCode = "RND";
-    const isProcurementRFQ = rawText.includes("procuring") || rawText.includes("procurement") || rawText.includes("specifications") || (lead.job_title || "").toLowerCase().includes("procurement") || (lead.job_title || "").toLowerCase().includes("purchasing") || rawText.includes("baaco") || rawText.includes("wholesale");
+    const isProcurementRFQ = rawText.includes("procuring") || rawText.includes("procurement") || rawText.includes("specifications") || (lead.job_title || "").toLowerCase().includes("procurement") || (lead.job_title || "").toLowerCase().includes("purchasing") || rawText.includes("wholesale") || (matched && matched.flags && matched.flags.treat_as_procurement);
 
     if (isSupplierPitch) {
       projectStage = "供应链商务合作与方案评估阶段";
@@ -1148,6 +1152,32 @@ https://ipetsystem.com`;
       .trim();
 
     return sanitized;
+  },
+
+  /**
+   * 外发前校验：纯英文、主题长度、签名存在。
+   * 返回 { ok, issues[], chineseCount, subjectLength }
+   */
+  validateOutbound: function (subjectText, bodyText) {
+    const subject = String(subjectText || '');
+    const body = String(bodyText || '');
+    const issues = [];
+    const chineseMatches = (subject + body).match(/[\u4e00-\u9fa5]/g) || [];
+    if (chineseMatches.length > 0) {
+      issues.push('Detected ' + chineseMatches.length + ' Chinese characters; must be removed before send');
+    }
+    if (subject.length < 35 || subject.length > 50) {
+      issues.push('Subject length ' + subject.length + '; recommended 35-50 chars');
+    }
+    if (!/IPET SYSTEM/i.test(body)) {
+      issues.push('Body missing IPET SYSTEM signature block');
+    }
+    return {
+      ok: issues.length === 0,
+      issues,
+      chineseCount: chineseMatches.length,
+      subjectLength: subject.length
+    };
   }
 };
 

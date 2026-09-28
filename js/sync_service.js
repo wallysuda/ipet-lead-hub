@@ -11,6 +11,15 @@
 const STORAGE_KEY = 'IPET_LEAD_ASSETS_V1';
 const SYNC_API_ENDPOINT = '/api/sync';
 
+function hubAuthHeaders(extra = {}) {
+  const token = (typeof window !== 'undefined' && window.IPET_HUB_TOKEN) ||
+                (typeof localStorage !== 'undefined' && localStorage.getItem('IPET_HUB_TOKEN')) ||
+                '';
+  return token
+    ? { ...extra, 'Authorization': `Bearer ${token}` }
+    : { ...extra };
+}
+
 class SyncService {
   constructor() {
     this.leads = [];
@@ -104,19 +113,36 @@ class SyncService {
     }
   }
 
+  // 企业/公司名归一，便于查重（去后缀、去空白、小写）
+  _normalizeCompany(name) {
+    return (name || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/\b(inc|incorporated|llc|ltd|limited|co|corp|corporation|gmbh|sa|bv|pty|pty ltd|plc|group|holdings)\b\.?/g, '')
+      .replace(/[.,]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  _normalizePhone(phone) {
+    return (phone || '').trim().replace(/[^0-9]/g, '');
+  }
+
   // 智能查重比对
   // 返回 { isDuplicate: boolean, matchedLead: object|null, reason: string }
   checkDuplicate(newLeadCandidate) {
-    if (!this.leads || this.leads.length === 0) {
+    const active = (this.leads || []).filter(l => !l.deleted_at);
+    if (active.length === 0) {
       return { isDuplicate: false, matchedLead: null, reason: '' };
     }
 
     const candEmail = (newLeadCandidate.email || '').trim().toLowerCase();
-    const candPhone = (newLeadCandidate.phone || '').trim().replace(/[^0-9]/g, '');
-    const candCompany = (newLeadCandidate.company || '').trim().toLowerCase();
+    const candPhone = this._normalizePhone(newLeadCandidate.phone);
+    const candCompany = this._normalizeCompany(newLeadCandidate.company);
     const candName = (newLeadCandidate.name || '').trim().toLowerCase();
 
-    for (const existing of this.leads) {
+    for (const existing of active) {
       // 1. 邮箱精准匹配 (最权威)
       if (candEmail && existing.email && candEmail === existing.email.trim().toLowerCase()) {
         return {
@@ -128,7 +154,7 @@ class SyncService {
 
       // 2. 电话精准匹配 (去除分隔符后)
       if (candPhone && candPhone.length >= 7 && existing.phone) {
-        const existPhone = existing.phone.trim().replace(/[^0-9]/g, '');
+        const existPhone = this._normalizePhone(existing.phone);
         if (candPhone === existPhone) {
           return {
             isDuplicate: true,
@@ -140,13 +166,28 @@ class SyncService {
 
       // 3. 同公司 + 相同人名 (高概率为同一个人多次提交不同表单)
       if (candCompany && candName && existing.company && existing.name) {
-        const existComp = existing.company.trim().toLowerCase();
-        const existName = existing.name.trim().toLowerCase();
+        const existComp = this._normalizeCompany(existing.company);
+        const existName = (existing.name || '').trim().toLowerCase();
         if (candCompany === existComp && candName === existName && candName !== 'linkedin 潜在客户') {
           return {
             isDuplicate: true,
             matchedLead: existing,
             reason: `企业与客户姓名完全重合 (${existing.company} - ${existing.name})`
+          };
+        }
+      }
+
+      // 4. 同公司归一名 + 邮箱域名相同（同公司不同别名邮箱）
+      if (candEmail && existing.email && candCompany && existing.company) {
+        const candDomain = candEmail.split('@')[1] || '';
+        const existEmail = existing.email.trim().toLowerCase();
+        const existDomain = existEmail.split('@')[1] || '';
+        const existComp = this._normalizeCompany(existing.company);
+        if (candDomain && candDomain === existDomain && candCompany === existComp) {
+          return {
+            isDuplicate: true,
+            matchedLead: existing,
+            reason: `同公司邮箱域名一致 (${candDomain})`
           };
         }
       }
@@ -232,20 +273,31 @@ class SyncService {
     return results;
   }
 
-  // 删除或作废线索
-  async deleteLead(leadId) {
+  // 删除或作废线索（软删除墓碑，避免多端合并后复活）
+  async deleteLead(leadId, options = { hard: false }) {
     const index = this.leads.findIndex(l => l.id === leadId);
     if (index === -1) return false;
 
-    this.leads.splice(index, 1);
+    if (options.hard) {
+      this.leads.splice(index, 1);
+    } else {
+      const now = new Date().toISOString();
+      this.leads[index] = {
+        ...this.leads[index],
+        deleted_at: now,
+        updated_at: now,
+        sync_version: (this.leads[index].sync_version || 0) + 1
+      };
+    }
     this.saveToLocal();
     this.notify();
 
-    // 云端同步删除
+    // 云端同步删除（软删也推 deleted_at，便于其它设备对齐）
     try {
       if (typeof fetch !== 'undefined') {
-        await fetch(`${SYNC_API_ENDPOINT}?id=${encodeURIComponent(leadId)}`, {
-          method: 'DELETE'
+        await fetch(`${SYNC_API_ENDPOINT}?id=${encodeURIComponent(leadId)}${options.hard ? '&hard=1' : ''}`, {
+          method: 'DELETE',
+          headers: hubAuthHeaders()
         });
       }
     } catch (e) {
@@ -267,8 +319,19 @@ class SyncService {
         return;
       }
 
-      const res = await fetch(`${SYNC_API_ENDPOINT}?_t=${Date.now()}`);
+      const res = await fetch(`${SYNC_API_ENDPOINT}?_t=${Date.now()}`, {
+        headers: hubAuthHeaders()
+      });
       if (!res.ok) {
+        if (res.status === 401 || res.status === 503) {
+          this.syncStatus = 'error';
+          this.notify();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('ipet:auth_required', {
+              detail: { status: res.status }
+            }));
+          }
+        }
         throw new Error(`Cloud sync HTTP ${res.status}`);
       }
 
@@ -276,7 +339,7 @@ class SyncService {
       const cloudLeads = Array.isArray(cloudData) ? cloudData : (cloudData.leads || []);
 
       if (Array.isArray(cloudLeads)) {
-        // 双向合并策略：按 ID 对齐，保留最新 updated_at
+        // 双向合并策略：按 ID 对齐，优先 sync_version，其次 updated_at；墓碑覆盖旧数据
         const mergedMap = new Map();
 
         // 先放入本地
@@ -286,10 +349,19 @@ class SyncService {
         cloudLeads.forEach(cLead => {
           if (!mergedMap.has(cLead.id)) {
             mergedMap.set(cLead.id, cLead);
-          } else {
-            const local = mergedMap.get(cLead.id);
+            return;
+          }
+          const local = mergedMap.get(cLead.id);
+          const localVer = local.sync_version || 0;
+          const cloudVer = cLead.sync_version || 0;
+          if (cloudVer > localVer) {
+            mergedMap.set(cLead.id, cLead);
+            return;
+          }
+          if (cloudVer === localVer) {
             const cloudTime = new Date(cLead.updated_at || cLead.created_at || 0).getTime();
             const localTime = new Date(local.updated_at || local.created_at || 0).getTime();
+            // 任一侧墓碑且更新，保留墓碑，防止已删线索复活
             if (cloudTime > localTime) {
               mergedMap.set(cLead.id, cLead);
             }
@@ -321,27 +393,36 @@ class SyncService {
     try {
       const res = await fetch(SYNC_API_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: hubAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(lead)
       });
       if (res.ok) {
         this.syncStatus = 'synced';
         this.lastSyncTime = new Date();
         this.notify();
+      } else if (res.status === 401 || res.status === 503) {
+        this.syncStatus = 'error';
+        this.notify();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ipet:auth_required', {
+            detail: { status: res.status }
+          }));
+        }
       }
     } catch (e) {
       console.warn('[SyncService] Push lead to cloud error:', e.message);
     }
   }
 
-  // 获取所有线索
-  getAllLeads() {
-    return this.leads || [];
+  // 获取所有线索（默认排除墓碑）
+  getAllLeads(options = { includeDeleted: false }) {
+    const all = this.leads || [];
+    return options.includeDeleted ? all : all.filter(l => !l.deleted_at);
   }
 
   // 获取线索资产统计汇总
   getMetrics() {
-    const all = this.leads || [];
+    const all = (this.leads || []).filter(l => !l.deleted_at);
     let tier1Count = 0;
     let tier2Count = 0;
     let tier3Count = 0;

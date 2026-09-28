@@ -10,6 +10,16 @@
 
   <div class="page-container">
 
+    <!-- 访问令牌（首次使用或鉴权失败时显示） -->
+    <section class="auth-bar" id="authBar" hidden>
+      <div class="auth-bar-desc">云端接口已启用访问保护。请输入团队访问令牌（HUB_API_TOKEN）以同步线索与调用研判接口。</div>
+      <div class="auth-bar-row">
+        <input type="password" id="hubTokenInput" class="auth-token-input" placeholder="粘贴 HUB_API_TOKEN" autocomplete="off">
+        <button class="btn btn-sm btn-primary" id="btnSaveHubToken">保存并连接</button>
+        <button class="btn btn-sm btn-outline" id="btnSkipHubToken">仅本地模式</button>
+      </div>
+    </section>
+
     <!-- 顶栏：标题与全局控制操作 -->
     <header class="hub-header">
       <div class="hub-title-block">
@@ -47,11 +57,50 @@
         当前共载入 <strong id="leadCountNumber">0</strong> 条真实线索资产 (云端全网同步状态: <span class="status-online">实时联机</span>)
       </div>
       <div class="table-bar-right">
+        <input type="search" id="leadSearchInput" class="lead-toolbar-input" placeholder="搜索姓名 / 公司 / 邮箱 / 需求...">
+        <select id="leadTierFilter" class="lead-toolbar-input" title="按商机分级筛选">
+          <option value="">全部分级</option>
+          <option value="TIER_1_READY_RFQ">Tier 1 · RFQ</option>
+          <option value="TIER_2_TECH_SPEC">Tier 2 · 技术资料</option>
+          <option value="TIER_3_EXPLORATORY">Tier 3 · 初级意向</option>
+          <option value="DISQUALIFIED">无效 / 误触</option>
+        </select>
+        <select id="leadSortSelect" class="lead-toolbar-input" title="排序">
+          <option value="time_desc">按时间最新</option>
+          <option value="time_asc">按时间最早</option>
+          <option value="score_desc">按成熟度高</option>
+          <option value="score_asc">按成熟度低</option>
+          <option value="company_asc">按公司名</option>
+        </select>
+        <button class="btn btn-xs btn-outline" id="btnExportCsv" title="导出当前筛选结果为 CSV">导出 CSV</button>
         <span id="reevaluateStatus" class="reevaluate-status"></span>
-        <button class="btn btn-xs btn-outline" id="btnReevaluateAllJev" title="通过 Vercel Serverless 直连 TypeSafe 官方 System One (jev-latest) 大模型，对全量线索进行意图分级与成熟度打分">
-          触发 TypeSafe Jev API 全量重新研判
+        <button class="btn btn-xs btn-outline" id="btnReevaluateAllJev" title="增量重研判（仅更新过期/缺失/文本变更线索）。Shift+点击 = 强制全量重新研判。">
+          重新研判 (增量)
         </button>
       </div>
+    </div>
+
+    <!-- 漏斗统计 -->
+    <section class="funnel-bar" id="funnelBar">
+      <div class="funnel-item"><span class="funnel-label">线索总量</span><strong id="funnelTotal">0</strong></div>
+      <div class="funnel-arrow">→</div>
+      <div class="funnel-item"><span class="funnel-label">Tier1 RFQ</span><strong id="funnelT1">0</strong></div>
+      <div class="funnel-arrow">→</div>
+      <div class="funnel-item"><span class="funnel-label">Tier2 资料</span><strong id="funnelT2">0</strong></div>
+      <div class="funnel-arrow">→</div>
+      <div class="funnel-item"><span class="funnel-label">已生成邮件</span><strong id="funnelEmailed">0</strong></div>
+      <div class="funnel-arrow">→</div>
+      <div class="funnel-item"><span class="funnel-label">已跟进</span><strong id="funnelFollowed">0</strong></div>
+    </section>
+
+    <!-- 批量操作条 -->
+    <div class="batch-bar" id="batchBar">
+      <span class="batch-count">已选 <strong id="batchSelectedCount">0</strong> 条</span>
+      <button class="btn btn-xs btn-outline" id="btnBatchRescore">批量重研判</button>
+      <button class="btn btn-xs btn-outline" id="btnBatchMarkFollowed">标记已跟进</button>
+      <button class="btn btn-xs btn-outline" id="btnBatchExport">导出所选</button>
+      <button class="btn btn-xs btn-outline btn-danger-text" id="btnBatchSoftDelete">软删除所选</button>
+      <button class="btn btn-xs btn-outline" id="btnSelectAll">全选/清空</button>
     </div>
 
     <!-- 10 列完整销售线索资产表格 -->
@@ -60,6 +109,7 @@
         <table class="leads-table" id="leadsTable">
           <thead>
             <tr>
+              <th style="width: 36px;"><input type="checkbox" id="selectAllCheckbox" title="全选"></th>
               <th style="width: 110px;">提交时间</th>
               <th style="width: 130px;">客户姓名</th>
               <th style="width: 180px;">企业邮箱</th>
@@ -73,7 +123,7 @@
             </tr>
           </thead>
           <tbody id="leadsTableBody">
-            <!-- 动态注入 10 列表格数据 -->
+            <!-- 动态注入表格数据 -->
           </tbody>
         </table>
       </div>
@@ -137,6 +187,7 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <!-- 脚本引入 -->
+  <script src="js/account_routing.js"></script>
   <script src="js/normalizer.js"></script>
   <script src="js/jev_engine.js"></script>
   <script src="js/inquiry_responder.js"></script>

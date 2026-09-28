@@ -12,6 +12,7 @@
   let currentEmailAnalysis = null;
   let selectedStrategyId = null;
   let selectedSubjectText = '';
+  let selectedLeadIds = new Set();
 
   // DOM 元素引用
   const el = {
@@ -47,8 +48,329 @@
     btnOpenMailto: document.getElementById('btnOpenMailto'),
 
     // Toasts
-    toastContainer: document.getElementById('toastContainer')
+    toastContainer: document.getElementById('toastContainer'),
+
+    // Access token
+    authBar: document.getElementById('authBar'),
+    hubTokenInput: document.getElementById('hubTokenInput'),
+    btnSaveHubToken: document.getElementById('btnSaveHubToken'),
+    btnSkipHubToken: document.getElementById('btnSkipHubToken'),
+
+    // Toolbar
+    leadSearchInput: document.getElementById('leadSearchInput'),
+    leadTierFilter: document.getElementById('leadTierFilter'),
+    leadSortSelect: document.getElementById('leadSortSelect'),
+    btnExportCsv: document.getElementById('btnExportCsv'),
+
+    // Batch + funnel
+    batchBar: document.getElementById('batchBar'),
+    batchSelectedCount: document.getElementById('batchSelectedCount'),
+    btnBatchRescore: document.getElementById('btnBatchRescore'),
+    btnBatchMarkFollowed: document.getElementById('btnBatchMarkFollowed'),
+    btnBatchExport: document.getElementById('btnBatchExport'),
+    btnBatchSoftDelete: document.getElementById('btnBatchSoftDelete'),
+    btnSelectAll: document.getElementById('btnSelectAll'),
+    selectAllCheckbox: document.getElementById('selectAllCheckbox'),
+    funnelTotal: document.getElementById('funnelTotal'),
+    funnelT1: document.getElementById('funnelT1'),
+    funnelT2: document.getElementById('funnelT2'),
+    funnelEmailed: document.getElementById('funnelEmailed'),
+    funnelFollowed: document.getElementById('funnelFollowed')
   };
+
+  function updateBatchBar() {
+    const n = selectedLeadIds.size;
+    if (el.batchSelectedCount) el.batchSelectedCount.textContent = String(n);
+    if (el.batchBar) {
+      if (n > 0) el.batchBar.classList.add('active');
+      else el.batchBar.classList.remove('active');
+    }
+  }
+
+  function updateFunnel(leads) {
+    const list = (leads || []).filter(l => !l.deleted_at);
+    const t1 = list.filter(l => l.jev_analysis && l.jev_analysis.tier === 'TIER_1_READY_RFQ').length;
+    const t2 = list.filter(l => l.jev_analysis && l.jev_analysis.tier === 'TIER_2_TECH_SPEC').length;
+    const emailed = list.filter(l => l.email_generated_at || l.status === 'emailed').length;
+    const followed = list.filter(l => l.status === 'followed_up' || l.followed_up_at).length;
+    if (el.funnelTotal) el.funnelTotal.textContent = String(list.length);
+    if (el.funnelT1) el.funnelT1.textContent = String(t1);
+    if (el.funnelT2) el.funnelT2.textContent = String(t2);
+    if (el.funnelEmailed) el.funnelEmailed.textContent = String(emailed);
+    if (el.funnelFollowed) el.funnelFollowed.textContent = String(followed);
+  }
+
+  function getSelectedLeads() {
+    const all = window.syncService ? window.syncService.getAllLeads() : [];
+    return all.filter(l => selectedLeadIds.has(l.id));
+  }
+
+  function persistLeadMutation(lead) {
+    if (!window.syncService) return;
+    lead.updated_at = new Date().toISOString();
+    lead.sync_version = (lead.sync_version || 0) + 1;
+    // 保存全量（本地立即可见）；云端由 syncService 的 push 异步对齐
+    const all = window.syncService.getAllLeads({ includeDeleted: true });
+    // getAllLeads 默认滤墓碑，这里直接改内部数组
+    const raw = window.syncService.leads || all;
+    const idx = raw.findIndex(l => l.id === lead.id);
+    if (idx >= 0) raw[idx] = lead;
+    window.syncService.saveLeads(raw);
+    if (window.syncService.pushLeadToCloud) {
+      window.syncService.pushLeadToCloud(lead).catch(() => {});
+    }
+  }
+
+  function applyLeadFilters(leads) {
+    const q = (el.leadSearchInput && el.leadSearchInput.value || '').trim().toLowerCase();
+    const tier = el.leadTierFilter && el.leadTierFilter.value || '';
+    const sort = el.leadSortSelect && el.leadSortSelect.value || 'time_desc';
+
+    let list = (leads || []).slice();
+    if (tier) {
+      list = list.filter(l => (l.jev_analysis && l.jev_analysis.tier) === tier);
+    }
+    if (q) {
+      list = list.filter(l => {
+        const blob = [
+          l.name, l.email, l.company, l.job_title,
+          l.raw_requirements, l.raw_text, l.channel_source, l.channel_scenario
+        ].join(' ').toLowerCase();
+        return blob.includes(q);
+      });
+    }
+
+    const timeOf = l => new Date(l.submitted_at || l.created_at || 0).getTime();
+    const scoreOf = l => (l.jev_analysis && l.jev_analysis.maturity_score) || 0;
+
+    if (sort === 'time_desc') list.sort((a, b) => timeOf(b) - timeOf(a));
+    else if (sort === 'time_asc') list.sort((a, b) => timeOf(a) - timeOf(b));
+    else if (sort === 'score_desc') list.sort((a, b) => scoreOf(b) - scoreOf(a));
+    else if (sort === 'score_asc') list.sort((a, b) => scoreOf(a) - scoreOf(b));
+    else if (sort === 'company_asc') list.sort((a, b) => String(a.company || '').localeCompare(String(b.company || '')));
+
+    return list;
+  }
+
+  function refreshVisibleTable() {
+    const all = window.syncService ? window.syncService.getAllLeads() : currentFilteredLeads;
+    const view = applyLeadFilters(all);
+    currentFilteredLeads = view;
+    renderTable(view);
+    if (el.leadCountNumber) {
+      el.leadCountNumber.textContent = String(view.length);
+    }
+    updateFunnel(all);
+  }
+
+  function exportLeadsCsv() {
+    const rows = currentFilteredLeads.length ? currentFilteredLeads : (window.syncService ? window.syncService.getAllLeads() : []);
+    if (!rows.length) {
+      showToast('当前没有可导出的线索', 'warn');
+      return;
+    }
+    const headers = [
+      '提交时间', '客户姓名', '企业邮箱', '企业', '职位', '电话', '国家',
+      '线索来源', '获客场景', '需求摘要', '商机分级', '成熟度评分', '跟进策略', 'ID'
+    ];
+    const esc = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+    const lines = [headers.map(esc).join(',')];
+    rows.forEach(l => {
+      const ja = l.jev_analysis || {};
+      lines.push([
+        l.submitted_at || l.created_at || '',
+        l.name || '',
+        l.email || '',
+        l.company || '',
+        l.job_title || '',
+        l.phone || '',
+        l.country || '',
+        l.channel_source || '',
+        l.channel_scenario || '',
+        (l.analysis_brief || l.raw_requirements || '').replace(/\s+/g, ' ').slice(0, 200),
+        ja.tier || '',
+        ja.maturity_score != null ? ja.maturity_score : '',
+        (ja.recommended_action || '').replace(/\s+/g, ' ').slice(0, 160),
+        l.id || ''
+      ].map(esc).join(','));
+    });
+    const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    const ts = new Date().toISOString().slice(0, 10);
+    a.href = URL.createObjectURL(blob);
+    a.download = `ipet-leads-${ts}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showToast(`已导出 ${rows.length} 条线索`, 'success');
+  }
+
+  function bindToolbarEvents() {
+    const onChange = () => refreshVisibleTable();
+    if (el.leadSearchInput) el.leadSearchInput.addEventListener('input', onChange);
+    if (el.leadTierFilter) el.leadTierFilter.addEventListener('change', onChange);
+    if (el.leadSortSelect) el.leadSortSelect.addEventListener('change', onChange);
+    if (el.btnExportCsv) el.btnExportCsv.addEventListener('click', exportLeadsCsv);
+  }
+
+  function bindBatchEvents() {
+    if (el.btnSelectAll) {
+      el.btnSelectAll.addEventListener('click', () => {
+        if (selectedLeadIds.size > 0) {
+          selectedLeadIds.clear();
+        } else {
+          currentFilteredLeads.forEach(l => selectedLeadIds.add(l.id));
+        }
+        refreshVisibleTable();
+        updateBatchBar();
+      });
+    }
+    if (el.selectAllCheckbox) {
+      el.selectAllCheckbox.addEventListener('change', () => {
+        if (el.selectAllCheckbox.checked) {
+          currentFilteredLeads.forEach(l => selectedLeadIds.add(l.id));
+        } else {
+          selectedLeadIds.clear();
+        }
+        refreshVisibleTable();
+        updateBatchBar();
+      });
+    }
+
+    if (el.btnBatchExport) {
+      el.btnBatchExport.addEventListener('click', () => {
+        const picked = getSelectedLeads();
+        if (!picked.length) {
+          showToast('请先勾选线索', 'warn');
+          return;
+        }
+        const prev = currentFilteredLeads;
+        currentFilteredLeads = picked;
+        exportLeadsCsv();
+        currentFilteredLeads = prev;
+      });
+    }
+
+    if (el.btnBatchMarkFollowed) {
+      el.btnBatchMarkFollowed.addEventListener('click', () => {
+        const picked = getSelectedLeads();
+        if (!picked.length) {
+          showToast('请先勾选线索', 'warn');
+          return;
+        }
+        const ts = new Date().toISOString();
+        picked.forEach(l => {
+          l.status = 'followed_up';
+          l.followed_up_at = ts;
+          persistLeadMutation(l);
+        });
+        showToast(`已标记 ${picked.length} 条为已跟进`, 'success');
+        refreshVisibleTable();
+      });
+    }
+
+    if (el.btnBatchSoftDelete) {
+      el.btnBatchSoftDelete.addEventListener('click', async () => {
+        const picked = getSelectedLeads();
+        if (!picked.length) {
+          showToast('请先勾选线索', 'warn');
+          return;
+        }
+        if (!confirm(`确认软删除 ${picked.length} 条线索？（可恢复）`)) return;
+        for (const l of picked) {
+          if (window.syncService && window.syncService.deleteLead) {
+            await window.syncService.deleteLead(l.id);
+          }
+        }
+        selectedLeadIds.clear();
+        showToast(`已软删除 ${picked.length} 条`, 'success');
+        updateBatchBar();
+        refreshVisibleTable();
+      });
+    }
+
+    if (el.btnBatchRescore) {
+      el.btnBatchRescore.addEventListener('click', async () => {
+        const picked = getSelectedLeads();
+        if (!picked.length) {
+          showToast('请先勾选线索', 'warn');
+          return;
+        }
+        if (!window.jevEngine) return;
+        el.btnBatchRescore.disabled = true;
+        try {
+          for (const lead of picked) {
+            const promptText = (lead.raw_requirements || lead.raw_text || '') + ' ' + JSON.stringify(lead.fields_filled || {});
+            const jevRes = await window.jevEngine.scoreLeadIntent(promptText, lead.email, lead.company, lead.job_title);
+            if (jevRes) {
+              lead.jev_analysis = { ...lead.jev_analysis, ...jevRes, rescored_at: new Date().toISOString() };
+              persistLeadMutation(lead);
+            }
+          }
+          showToast(`已重新研判 ${picked.length} 条`, 'success');
+          refreshVisibleTable();
+        } catch (e) {
+          showToast('批量研判失败: ' + e.message, 'error');
+        } finally {
+          el.btnBatchRescore.disabled = false;
+        }
+      });
+    }
+  }
+
+  function getHubToken() {
+    try {
+      return localStorage.getItem('IPET_HUB_TOKEN') || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function setHubToken(token) {
+    try {
+      if (token) {
+        localStorage.setItem('IPET_HUB_TOKEN', token);
+        window.IPET_HUB_TOKEN = token;
+      } else {
+        localStorage.removeItem('IPET_HUB_TOKEN');
+        window.IPET_HUB_TOKEN = '';
+      }
+    } catch (e) {}
+  }
+
+  function showAuthBar(show) {
+    if (!el.authBar) return;
+    if (show) el.authBar.removeAttribute('hidden');
+    else el.authBar.setAttribute('hidden', '');
+  }
+
+  function bindAuthEvents() {
+    if (el.btnSaveHubToken) {
+      el.btnSaveHubToken.addEventListener('click', async () => {
+        const token = (el.hubTokenInput && el.hubTokenInput.value || '').trim();
+        if (!token) {
+          showToast('请输入有效的访问令牌', 'warn');
+          return;
+        }
+        setHubToken(token);
+        showAuthBar(false);
+        showToast('访问令牌已保存，正在连接云端...', 'info');
+        if (window.syncService) {
+          await window.syncService.syncWithCloud();
+        }
+      });
+    }
+    if (el.btnSkipHubToken) {
+      el.btnSkipHubToken.addEventListener('click', () => {
+        showAuthBar(false);
+        showToast('已切换为仅本地模式，云端同步不可用', 'warn');
+      });
+    }
+    window.addEventListener('ipet:auth_required', () => {
+      showAuthBar(true);
+      showToast('需要访问令牌才能读写云端线索', 'warn');
+    });
+  }
 
   // Toast 通知辅助函数 (纯文字，无任何 Icon/Emoji)
   function showToast(message, type = 'info') {
@@ -69,18 +391,28 @@
     bindActionEvents();
     bindModalEvents();
     bindEmailEvents();
+    bindAuthEvents();
+    bindToolbarEvents();
+    bindBatchEvents();
+
+    // 同步令牌到全局，供 sync/jev 使用
+    const existing = getHubToken();
+    if (existing) {
+      window.IPET_HUB_TOKEN = existing;
+      showAuthBar(false);
+    } else {
+      showAuthBar(true);
+    }
 
     // 订阅数据变动
     if (window.syncService) {
       window.syncService.subscribe((leads, status) => {
         updateSyncIndicator(status);
-        currentFilteredLeads = leads;
-        renderTable(leads);
+        refreshVisibleTable();
       });
 
       // 首次载入渲染
-      currentFilteredLeads = window.syncService.getAllLeads();
-      renderTable(currentFilteredLeads);
+      refreshVisibleTable();
     }
   }
 
@@ -221,45 +553,61 @@
       });
     }
 
-    // 6. 触发 TypeSafe Jev API 全量重新研判
+    // 6. 触发 TypeSafe Jev 重新研判（默认增量，仅重判需要更新的线索）
     if (el.btnReevaluateAllJev) {
-      el.btnReevaluateAllJev.addEventListener('click', async () => {
+      el.btnReevaluateAllJev.addEventListener('click', async (ev) => {
         if (!window.syncService || !window.jevEngine) return;
+        const forceAll = ev.shiftKey === true;
         const allLeads = window.syncService.getAllLeads();
         if (allLeads.length === 0) {
           showToast('当前无可用线索资产', 'warn');
           return;
         }
 
+        const targets = forceAll
+          ? allLeads.slice()
+          : allLeads.filter(l => window.jevEngine.needsRescore(l));
+
+        if (targets.length === 0) {
+          showToast('所有线索研判均为最新，无需重新打分（Shift+点击可强制全量）', 'info');
+          return;
+        }
+
         if (el.reevaluateStatus) {
-          el.reevaluateStatus.innerText = '正在请求 TypeSafe Jev API 全量研判中...';
+          el.reevaluateStatus.innerText = `正在研判 ${targets.length}/${allLeads.length} 条${forceAll ? '（强制全量）' : '（增量）'}...`;
         }
         el.btnReevaluateAllJev.disabled = true;
 
         try {
-          for (let i = 0; i < allLeads.length; i++) {
-            const lead = allLeads[i];
+          for (let i = 0; i < targets.length; i++) {
+            const lead = targets[i];
             const promptText = (lead.raw_requirements || lead.raw_text || '') + ' ' + JSON.stringify(lead.fields_filled || {});
             const jevRes = await window.jevEngine.scoreLeadIntent(promptText, lead.email, lead.company, lead.job_title);
             if (jevRes) {
               lead.jev_analysis = {
                 ...lead.jev_analysis,
                 ...jevRes,
-                source: 'jev_live'
+                source: jevRes.source || lead.jev_analysis?.source || 'jev_calibrated',
+                rescored_at: new Date().toISOString()
               };
+              lead.updated_at = new Date().toISOString();
+              lead.sync_version = (lead.sync_version || 0) + 1;
+            }
+            if (el.reevaluateStatus && (i % 5 === 0 || i === targets.length - 1)) {
+              el.reevaluateStatus.innerText = `研判进度 ${i + 1}/${targets.length}`;
             }
           }
 
           window.syncService.saveLeads(allLeads);
 
           if (el.reevaluateStatus) {
-            el.reevaluateStatus.innerText = '全量 TypeSafe Jev 研判已完成！';
-            setTimeout(() => { if (el.reevaluateStatus) el.reevaluateStatus.innerText = ''; }, 4000);
+            el.reevaluateStatus.innerText = `研判完成：更新 ${targets.length} 条，跳过 ${allLeads.length - targets.length} 条`;
+            setTimeout(() => { if (el.reevaluateStatus) el.reevaluateStatus.innerText = ''; }, 5000);
           }
-          showToast('全量线索已成功经由 TypeSafe Jev 重新研判并更新', 'success');
+          showToast(`研判完成：${targets.length} 条已更新`, 'success');
         } catch (err) {
           console.error('Re-evaluate error:', err);
-          showToast('全量研判发生异常: ' + err.message, 'error');
+          showToast('研判发生异常: ' + err.message, 'error');
           if (el.reevaluateStatus) el.reevaluateStatus.innerText = '';
         } finally {
           el.btnReevaluateAllJev.disabled = false;
@@ -565,11 +913,13 @@
       const sourceInfo = resolveLeadSourceChannel({ ...l, channel_scenario: cleanScenario });
 
       const tr = document.createElement('tr');
+      tr.dataset.id = l.id;
       tr.innerHTML = `
+        <td style="text-align: center;"><input type="checkbox" class="row-select" data-id="${escapeHtml(l.id)}" ${selectedLeadIds.has(l.id) ? 'checked' : ''}></td>
         <td><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(cleanSubmittedTime)}</span></td>
         <td><strong>${cleanDisplayName}</strong></td>
         <td>${l.email ? `<a href="mailto:${escapeHtml(l.email)}" style="color: #2563eb; text-decoration: none; font-family: var(--font-mono); font-size: 11px;">${escapeHtml(l.email)}</a>` : '<span style="color: var(--text-dim);">-</span>'}</td>
-        <td><strong>${escapeHtml(cleanComp)}</strong><br><span style="color: var(--text-dim); font-size: 11px;">${escapeHtml(cleanTitle)}</span></td>
+        <td class="editable-cell" data-field="company" data-id="${escapeHtml(l.id)}" title="双击编辑企业/职位"><strong class="cell-company">${escapeHtml(cleanComp)}</strong><br><span class="cell-title" style="color: var(--text-dim); font-size: 11px;">${escapeHtml(cleanTitle)}</span></td>
         <td style="max-width: 190px;">
           <span class="badge ${sourceInfo.badgeClass}" style="font-size: 10px; padding: 2px 6px; font-weight: 600;">${escapeHtml(sourceInfo.channel)}</span>
           <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.35;">${escapeHtml(sourceInfo.scenario)}</div>
@@ -590,6 +940,34 @@
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
         openEmailModal(id);
+      });
+    });
+
+    // 行选择
+    el.leadsTableBody.querySelectorAll('.row-select').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const id = cb.getAttribute('data-id');
+        if (cb.checked) selectedLeadIds.add(id);
+        else selectedLeadIds.delete(id);
+        updateBatchBar();
+      });
+    });
+
+    // 双击编辑企业
+    el.leadsTableBody.querySelectorAll('.editable-cell').forEach(td => {
+      td.addEventListener('dblclick', () => {
+        const id = td.getAttribute('data-id');
+        const lead = window.syncService && window.syncService.getAllLeads().find(l => l.id === id);
+        if (!lead) return;
+        const nextCompany = prompt('企业名称', lead.company || '');
+        if (nextCompany === null) return;
+        const nextTitle = prompt('职位', lead.job_title || '');
+        if (nextTitle === null && nextCompany === (lead.company || '')) return;
+        if (nextCompany !== null && nextCompany !== lead.company) lead.company = nextCompany.trim();
+        if (nextTitle !== null && nextTitle !== lead.job_title) lead.job_title = nextTitle.trim();
+        persistLeadMutation(lead);
+        refreshVisibleTable();
+        showToast('字段已更新', 'success');
       });
     });
   }
@@ -621,6 +999,13 @@
 
     currentEmailLead = lead;
     currentEmailAnalysis = window.InquiryResponder.analyzeLead(lead);
+
+    // 记录邮件生成，驱动漏斗
+    if (!lead.email_generated_at) {
+      lead.email_generated_at = new Date().toISOString();
+      if (!lead.status || lead.status === 'new') lead.status = 'emailed';
+      persistLeadMutation(lead);
+    }
 
     // 渲染头部
     el.emailModalClientTitle.innerText = `${currentEmailAnalysis.callName} (${currentEmailAnalysis.cleanEnglishCompany})`;
@@ -675,6 +1060,11 @@
 
   function selectStrategy(strategyId) {
     selectedStrategyId = strategyId;
+    if (currentEmailLead) {
+      currentEmailLead.strategy_id = strategyId;
+      currentEmailLead.strategy_selected_at = new Date().toISOString();
+      persistLeadMutation(currentEmailLead);
+    }
     const subjects = window.InquiryResponder.generateSubjectLinesForStrategy(currentEmailAnalysis, strategyId);
     renderEmailSubjects(subjects);
   }
@@ -714,6 +1104,10 @@
 
   function updateEmailBody(subjectText) {
     selectedSubjectText = subjectText;
+    if (currentEmailLead) {
+      currentEmailLead.subject_used = subjectText;
+      persistLeadMutation(currentEmailLead);
+    }
     const body = window.InquiryResponder.generateCustomEmailBody(currentEmailAnalysis, selectedStrategyId, subjectText);
     if (el.emailBodyTextarea) {
       el.emailBodyTextarea.value = body;
@@ -721,8 +1115,19 @@
   }
 
   function bindEmailEvents() {
+    function assertOutboundReady() {
+      if (!window.InquiryResponder || !window.InquiryResponder.validateOutbound) return true;
+      const check = window.InquiryResponder.validateOutbound(selectedSubjectText, el.emailBodyTextarea && el.emailBodyTextarea.value);
+      if (!check.ok) {
+        showToast(check.issues.join('；'), 'error');
+        return false;
+      }
+      return true;
+    }
+
     if (el.btnCopyEmail) {
       el.btnCopyEmail.addEventListener('click', () => {
+        if (!assertOutboundReady()) return;
         const text = `Subject: ${selectedSubjectText}\n\n${el.emailBodyTextarea.value}`;
         navigator.clipboard.writeText(text).then(() => {
           showToast('纯英文跟进邮件（包含主题行）已复制到剪贴板', 'success');
@@ -736,6 +1141,7 @@
           showToast('该线索无有效邮箱', 'warn');
           return;
         }
+        if (!assertOutboundReady()) return;
         const to = currentEmailLead.email;
         const subj = encodeURIComponent(selectedSubjectText);
         const body = encodeURIComponent(el.emailBodyTextarea.value);

@@ -11,17 +11,22 @@
 const Normalizer = require('../js/normalizer.js');
 const JevEngine = require('../js/jev_engine.js');
 const syncHandler = require('./sync.js');
+const {
+  applyCors,
+  rateLimit,
+  clientIp,
+  requireWebhookSecret,
+  noStore,
+  handlePreflight
+} = require('../lib/security');
 
 const jev = new JevEngine();
 
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Channel-Source');
+  applyCors(req, res);
+  noStore(res);
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (handlePreflight(req, res)) return;
 
   if (req.method === 'GET') {
     return res.status(200).json({
@@ -29,6 +34,7 @@ module.exports = async (req, res) => {
       service: 'IPET Lead Assets Hub · Universal Ingestion Webhook',
       endpoint: '/api/ingest',
       method: 'POST',
+      auth: 'X-Hub-Secret or Authorization: Bearer <HUB_WEBHOOK_SECRET>',
       accepted_content_types: ['application/json', 'application/x-www-form-urlencoded', 'text/plain'],
       description: 'Send any raw lead form JSON or text to automatically normalize, analyze via Jev AI, and persist into IPET Lead Assets Hub.'
     });
@@ -36,6 +42,14 @@ module.exports = async (req, res) => {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+  }
+
+  if (!requireWebhookSecret(req, res)) return;
+
+  const rl = rateLimit(`ingest:${clientIp(req)}`, 60, 60_000);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(Math.ceil((rl.retryAfterMs || 60000) / 1000)));
+    return res.status(429).json({ success: false, error: 'Rate limit exceeded', code: 'RATE_LIMITED' });
   }
 
   try {
@@ -70,11 +84,15 @@ module.exports = async (req, res) => {
     );
     normalizedLead.jev_analysis = jevRes;
 
-    // 3. 内部委托给 syncHandler 存入云端
+    // 3. 内部委托给 syncHandler 存入云端（注入服务端令牌，避免二次鉴权失败）
+    const serverToken = (process.env.HUB_API_TOKEN || process.env.HUB_WRITE_TOKEN || '').trim();
     const mockReq = {
       method: 'POST',
       body: normalizedLead,
-      headers: req.headers
+      headers: {
+        ...req.headers,
+        ...(serverToken ? { authorization: `Bearer ${serverToken}` } : {})
+      }
     };
     const mockRes = {
       statusCode: 200,
@@ -82,6 +100,9 @@ module.exports = async (req, res) => {
       setHeader(k, v) { this.headers[k] = v; },
       status(code) { this.statusCode = code; return this; },
       json(data) {
+        if (this.statusCode >= 400 || (data && data.success === false)) {
+          return res.status(this.statusCode >= 400 ? this.statusCode : 502).json(data);
+        }
         return res.status(201).json({
           success: true,
           message: 'Lead asset successfully normalized and stored',

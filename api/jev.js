@@ -11,11 +11,19 @@
  */
 
 const https = require('https');
+const {
+  applyCors,
+  rateLimit,
+  clientIp,
+  requireHubToken,
+  noStore,
+  handlePreflight,
+  env
+} = require('../lib/security');
 
-const DEFAULT_TYPESAFE_API_KEY = "apikey_221812bfd37da738469ea9082cbc951f69d5_64b5766d3cdf62618ec507194eeb4126619aea698f0097cebf4407a2a16b3621";
-
+// 密钥只从环境变量读取。当前泄露的 key 必须在 TypeSafe 控制台作废后，再写入 Vercel env。
 function getApiKey() {
-  return (process.env.TYPESAFE_API_KEY && process.env.TYPESAFE_API_KEY.trim()) || DEFAULT_TYPESAFE_API_KEY;
+  return env('TYPESAFE_API_KEY');
 }
 
 function callTypeSafeApi(payload) {
@@ -65,14 +73,10 @@ function callTypeSafeApi(payload) {
 }
 
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  applyCors(req, res);
+  noStore(res);
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (handlePreflight(req, res)) return;
 
   if (req.method === 'GET') {
     return res.status(200).json({
@@ -80,12 +84,31 @@ module.exports = async (req, res) => {
       service: 'IPET Lead Hub · TypeSafe Jev System One Serverless Proxy',
       model: 'jev-latest',
       active_backend: 'https://api.typesafe.ai/v1/systemone',
-      api_key_configured: !!getApiKey()
+      api_key_configured: !!getApiKey(),
+      auth_required: !!env('HUB_API_TOKEN')
     });
   }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+  }
+
+  if (!requireHubToken(req, res, { write: true, purpose: 'jev' })) return;
+
+  // 限流：防止 key 泄露或滥用烧掉 TypeSafe 额度
+  const rl = rateLimit(`jev:${clientIp(req)}`, 30, 60_000);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(Math.ceil((rl.retryAfterMs || 60000) / 1000)));
+    return res.status(429).json({ success: false, error: 'Rate limit exceeded', code: 'RATE_LIMITED' });
+  }
+
+  if (!getApiKey()) {
+    return res.status(503).json({
+      success: false,
+      error: 'TYPESAFE_API_KEY is not configured on the server.',
+      code: 'MODEL_KEY_MISSING',
+      fallback_available: true
+    });
   }
 
   try {

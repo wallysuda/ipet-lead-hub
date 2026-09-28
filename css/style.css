@@ -950,3 +950,137 @@ body {
   color: var(--color-brand);
   overflow-x: auto;
 }
+
+/* --- Access token bar --- */
+.auth-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 8px;
+}
+
+.auth-bar[hidden] {
+  display: none !important;
+}
+
+.auth-bar-desc {
+  font-size: 12px;
+  color: #9a3412;
+  line-height: 1.5;
+}
+
+.auth-bar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.auth-token-input {
+  flex: 1 1 240px;
+  min-width: 200px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: #fff;
+}
+
+/* --- Lead toolbar --- */
+.lead-toolbar-input {
+  padding: 6px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 12px;
+  background: #fff;
+  color: var(--text-main);
+  min-width: 120px;
+}
+
+#leadSearchInput {
+  min-width: 180px;
+}
+
+.table-bar-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* --- Funnel + batch --- */
+.funnel-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.funnel-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 72px;
+}
+
+.funnel-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.funnel-item strong {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--text-main);
+  line-height: 1.1;
+}
+
+.funnel-arrow {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.batch-bar {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.batch-bar.active {
+  display: flex;
+}
+
+.batch-count {
+  font-size: 12px;
+  color: var(--text-main);
+  margin-right: 4px;
+}
+
+.leads-table td.editable-cell {
+  cursor: text;
+}
+
+.leads-table td.editable-cell:hover {
+  outline: 1px dashed #93c5fd;
+}
+
+.leads-table td.editable-cell:focus {
+  outline: 2px solid #2563eb;
+  background: #fff;
+}

@@ -4,7 +4,10 @@
   "description": "IPET SYSTEM Standalone Lead Assets Hub - Universal Multi-Channel Ingestion & AI Intent Tiering",
   "main": "index.html",
   "scripts": {
-    "test": "node tests/test_normalizer.js",
+    "test": "node tests/test_security.js && node tests/test_lead_store.js && node tests/test_normalizer.js",
+    "test:security": "node tests/test_security.js",
+    "test:store": "node tests/test_lead_store.js",
+    "test:normalizer": "node tests/test_normalizer.js",
     "start": "npx serve ."
   },
   "keywords": [
