@@ -1577,3 +1577,11 @@ body.modal-open {
   font-size: 11px;
   color: var(--text-muted);
 }
+
+.email-body-flash {
+  animation: emailFlash 0.35s ease;
+}
+@keyframes emailFlash {
+  0% { background: #fef9c3; }
+  100% { background: #fff; }
+}

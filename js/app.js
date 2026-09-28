@@ -1640,11 +1640,20 @@
         selectedEmailLength = btn.getAttribute('data-len') || 'short';
         document.querySelectorAll('#emailLengthSwitch .len-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        if (selectedSubjectText) {
-          updateEmailBody(selectedSubjectText);
-        } else if (currentEmailAnalysis && window.InquiryResponder) {
+        // 强制按当前策略+主题重生成，保证点击必变
+        let subj = selectedSubjectText;
+        if (!subj && currentEmailAnalysis && window.InquiryResponder) {
           const subjects = window.InquiryResponder.generateSubjectLinesForStrategy(currentEmailAnalysis, selectedStrategyId);
-          if (subjects[0]) updateEmailBody(subjects[0].text);
+          subj = (subjects[0] && subjects[0].text) || '';
+          if (subj) selectedSubjectText = subj;
+        }
+        if (currentEmailAnalysis && window.InquiryResponder) {
+          updateEmailBody(subj || '');
+        }
+        if (el.emailBodyTextarea) {
+          el.emailBodyTextarea.classList.remove('email-body-flash');
+          void el.emailBodyTextarea.offsetWidth;
+          el.emailBodyTextarea.classList.add('email-body-flash');
         }
         showToast(`邮件篇幅已切换：${btn.textContent}`, 'info');
       });

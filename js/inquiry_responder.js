@@ -1085,7 +1085,7 @@ const InquiryResponder = {
   composeFollowUpBody: function (analysis, strategyId, subjectText, length) {
     const mode = length || 'short';
     const name = analysis.callName || 'there';
-    const comp = analysis.cleanEnglishCompany || 'your team';
+    const comp = String(analysis.cleanEnglishCompany || 'your team').replace(/[.。]+$/,'');
     const p = analysis.detectedParams || {};
     const job = (analysis.job_title || '').trim();
     const industry = (analysis.industryProfile || '').trim();
@@ -1128,6 +1128,26 @@ https://ipetsystem.com`;
 
     const subjectHint = subjectText ? String(subjectText).replace(/\s+/g, ' ').trim() : '';
 
+    // 策略切角：一句差异，避免三封策略邮件长得一样
+    const angle = {
+      heavy_lift_sizing: 'heavy-lift thrust margin and hover efficiency at your MTOW class',
+      coaxial_redundancy: 'coaxial / redundant rotor layouts and fail-safe power mapping',
+      commercial_sample: 'sample pricing and first-article lead time',
+      sizing_dyno: 'bench dyno curves matched to your voltage and prop class',
+      concept_eval: 'a feasibility-level powertrain package for early trade studies',
+      payload_vibration: 'low-EMI FOC drive tuning for gimbal / sensor payloads',
+      procurement_intake: 'an OEM procurement package with BOM-ready part numbers',
+      flight_testing: 'flight-test support kit and spare motor / ESC sets',
+      oem_supply: 'OEM supply terms and repeat-order capacity',
+      project_timeline: 'milestone-based delivery timing against your project plan',
+      avionics_interface: 'DroneCAN / telemetry interface notes and wiring guidance',
+      standard_sizing: 'a clear motor + ESC + prop selection for your airframe',
+      project_timeline: 'milestone-based delivery timing against your project plan',
+      dronex_booth_meet: 'a short meeting slot and follow-up technical pack',
+      prototype_sourcing: 'prototype machining / sample build support',
+      pre_show_call: 'a pre-show technical alignment call'
+    }[strategyId] || 'a concise powertrain selection for your program';
+
     if (mode === 'short') {
       const isNeedInfo = strategyId === 'need_info' || strategyId === 'need_info_questions' || strategyId === 'need_info_catalog';
       const bits = [];
@@ -1144,14 +1164,12 @@ https://ipetsystem.com`;
         bits.push('');
         bits.push('Once I have these, I will send a short sizing note the same day.');
       } else {
-        bits.push(`We can share a concise sizing note and the matching ${productLine} for your program.`);
+        bits.push(`We can send ${angle}.`);
         if (missing.length) {
-          bits.push(`To lock the right set, please confirm: ${missing.slice(0, 2).join(' and ')}.`);
-        } else if (focusLine) {
-          bits.push('If the targets above are correct, I will send the recommended motor/ESC/prop combo and key dyno figures.');
+          bits.push(`Please confirm ${missing.slice(0, 2).join(' and ')}.`);
+        } else {
+          bits.push('I will send the recommended motor/ESC/prop set and key dyno figures.');
         }
-        bits.push('');
-        bits.push('If you prefer a short call, send two time windows that work on your side.');
       }
       bits.push(sign);
       return bits.join('\n').trim();
@@ -1165,20 +1183,16 @@ https://ipetsystem.com`;
         ? `Thanks for contacting IPET SYSTEM. I reviewed your note on ${focusLine}.`
         : `Thanks for contacting IPET SYSTEM about your UAV powertrain needs.`);
       bits.push('');
-      bits.push(`${roleLine}, our ${productLine} are dyno-matched for stable hover efficiency and clear throttle response.`);
-      if (industry && industry.length < 80) {
-        bits.push(`Given your focus on ${industry.replace(/[一-龥]+/g, '').trim() || 'industrial UAV platforms'}, the closest current fit is the same I7/I8 family we ship to OEM programs.`);
-      }
-      if (focusLine) {
-        bits.push(`Working assumption: ${focusLine}.`);
-      }
+      bits.push(`${roleLine}, we can cover ${angle}.`);
+      bits.push(`Our ${productLine} are dyno-matched for stable hover efficiency.`);
+      if (focusLine) bits.push(`Working assumption: ${focusLine}.`);
       if (missing.length) {
-        bits.push(`Please confirm ${missing.slice(0, 3).join(', ')} so I can send a tight selection sheet.`);
+        bits.push(`Please confirm ${missing.slice(0, 2).join(' and ')} and I will send a tight selection sheet with 3D STEP models.`);
       } else {
         bits.push('I can send the selection sheet and 3D STEP models next business day.');
       }
       bits.push('');
-      bits.push('Happy to proceed over email — or we can do a 15-minute sizing call if that is faster.');
+      bits.push('Happy to proceed over email — or we can do a short sizing call if that is faster.');
       bits.push(sign);
       return bits.join('\n').trim();
     }
@@ -1195,6 +1209,7 @@ What we can put on the table for ${comp}:
 - Factory-matched ${productLine}
 - Dyno curves for hover/current draw at your voltage class
 - Native 3D STEP mounts and wiring notes
+- IP66 drive options and DroneCAN telemetry notes
 ${p.stage ? `- Delivery timing aligned to ${String(p.stage).replace(/[一-龥]+/g, '').trim() || p.stage}` : '- Sample lead time in 2–3 weeks after spec freeze'}
 
 To return a precise configuration, I need three inputs:
@@ -1219,20 +1234,17 @@ https://ipetsystem.com`;
   generateCustomEmailBody: function (analysis, strategyId, subjectText, options) {
     const lengthMode = (options && options.length) || analysis._email_length || 'short';
 
-    // 主跟进类策略走篇幅可控的精准短文
-    const composedStrategies = new Set([
-      'heavy_lift_sizing', 'coaxial_redundancy', 'commercial_sample',
-      'sizing_dyno', 'concept_eval', 'payload_vibration',
-      'procurement_intake', 'flight_testing', 'oem_supply',
-      'project_timeline', 'avionics_interface',
-      'need_info_questions', 'need_info_catalog'
+    // 仅保留特殊体裁；其余一律走篇幅可控的精准正文（保证切档必变）
+    const specialStrategies = new Set([
+      'pass_archive', 'decline_polite', 'disqualify_polite', 'disqualify_brief',
+      'supplier_intake', 'supplier_nda_review', 'supplier_decline'
     ]);
-    if (composedStrategies.has(strategyId)) {
-      // need_info 保持补参语气，但仍短
-      if (strategyId === 'need_info_questions' || strategyId === 'need_info_catalog') {
-        return this.composeFollowUpBody(analysis, 'need_info', subjectText, 'short');
-      }
-      return this.composeFollowUpBody(analysis, strategyId, subjectText, lengthMode);
+    if (!specialStrategies.has(strategyId)) {
+      const sid = strategyId === 'need_info_questions' || strategyId === 'need_info_catalog'
+        ? 'need_info'
+        : strategyId;
+      // 展会/供应商打样等也收成短/标/详，避免旧长文
+      return this.composeFollowUpBody(analysis, sid, subjectText, lengthMode);
     }
 
     const name = analysis.callName || "there";
