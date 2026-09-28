@@ -3,221 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IPET 线索资产管理</title>
+  <title>LinkedIn 原生 Lead Gen Form 销售线索资产库</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-  <!-- 顶部导航栏 -->
-  <header class="navbar">
-    <div class="brand-section">
-      <div class="brand-title">IPET 线索资产管理</div>
-    </div>
+  <div class="page-container">
 
-    <div class="nav-controls">
-      <div class="sync-indicator" id="syncIndicator">
-        <span class="sync-dot"></span>
-        <span id="syncStatusText">已同步</span>
+    <!-- 顶栏：标题与全局控制操作 -->
+    <header class="hub-header">
+      <div class="hub-title-block">
+        <h1 class="hub-title">LinkedIn 原生 Lead Gen Form 销售线索资产库</h1>
+        <p class="hub-subtitle">真实客户线索已载入，由 TypeSafe Jev 自动完成意图研判、成熟度评分与跟进策略生成：</p>
       </div>
-
-      <button class="btn btn-outline" id="btnSyncNow">同步</button>
-      <button class="btn btn-outline" id="btnExportCsv">导出 CSV</button>
-      <button class="btn btn-outline" id="btnOpenSettings">设置</button>
-      <button class="btn btn-primary" id="btnOpenIngestModal">录入线索</button>
-    </div>
-  </header>
-
-  <!-- 主体工作区 -->
-  <main class="main-container">
-
-    <!-- KPI 统计卡片网格 (仅保留线索总数和 Tier 1 RFQ) -->
-    <section class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">线索总数</div>
-        <div class="stat-value" id="statTotalLeads">--</div>
+      <div class="hub-actions">
+        <span class="sync-status-badge" id="cloudSyncStatus">
+          <span class="sync-dot"></span> 云端已全量同步
+        </span>
+        <button class="btn btn-sm btn-outline" id="btnSyncNow" title="立即与云端核对最新线索">刷新云端</button>
+        <input type="file" id="leadCsvFileInput" accept=".csv" style="display: none;">
+        <button class="btn btn-sm btn-primary" id="btnImportCsv">导入更多 CSV</button>
+        <button class="btn btn-sm btn-outline" id="btnFocusPaste">快捷粘贴录入</button>
+        <button class="btn btn-sm btn-outline btn-danger-text" id="btnClearCustom">清空本地导入</button>
       </div>
+    </header>
 
-      <div class="stat-card">
-        <div class="stat-label">Tier 1 RFQ</div>
-        <div class="stat-value" id="statTier1Count">--</div>
+    <!-- 快捷粘贴录入新询盘卡片 -->
+    <section class="paste-card">
+      <div class="paste-card-header">
+        <strong class="paste-card-title">快捷粘贴录入新询盘 / 后台留言 (支持多行表格自动解析)</strong>
+        <span class="paste-card-desc">支持直接复制后台表单键值对，系统自动结构化提取入库、秒级同步云端并即刻生成专业邮件</span>
+      </div>
+      <textarea id="pasteLeadInput" class="paste-textarea" rows="2" placeholder="在此粘贴后台客户留言或邮件文本（例如包含 姓名: / 公司: / E-mail: / 电话: / 内容: / 无人机类型: / Project Stage: 等多行内容）..."></textarea>
+      <div class="paste-card-footer">
+        <span id="pasteSyncIndicator" class="paste-indicator"></span>
+        <button class="btn btn-sm btn-primary" id="btnPasteLead">智能解析入库并生成跟进邮件</button>
       </div>
     </section>
 
-    <!-- 工具栏与筛选区 -->
-    <section class="toolbar-card">
-      <div class="filter-group">
-        <div class="search-box">
-          <input type="text" id="searchInput" placeholder="搜索姓名、企业、邮箱或参数...">
-        </div>
-
-        <select class="select-filter" id="filterChannel">
-          <option value="ALL">全部渠道</option>
-          <option value="官网独立站询盘">官网独立站</option>
-          <option value="LinkedIn 广告原生表单">LinkedIn 广告</option>
-          <option value="线下专业展会">线下展会</option>
-          <option value="外协供应商合作自荐">外协供应商</option>
-          <option value="Google 搜索广告留资">Google 广告</option>
-          <option value="销售初聊">销售直聊 / WhatsApp</option>
-        </select>
-
-        <select class="select-filter" id="filterTier">
-          <option value="ALL">全部评级</option>
-          <option value="TIER_1_READY_RFQ">Tier 1 (RFQ)</option>
-          <option value="TIER_2_TECH_SPEC">Tier 2 (技术规格)</option>
-          <option value="TIER_3_EXPLORATORY">Tier 3 (意向探讨)</option>
-          <option value="DISQUALIFIED">红线排除</option>
-        </select>
-
-        <select class="select-filter" id="filterPersona">
-          <option value="ALL">全部画像</option>
-          <option value="TYPE_B_COMMERCIAL_OEM">商业整机 OEM</option>
-          <option value="TYPE_A_ACADEMIC">高校科研</option>
-          <option value="TYPE_S_SUPPLIER">供应链外协</option>
-          <option value="TYPE_D_DISQUALIFIED">业务边界回绝</option>
-        </select>
-
-        <button class="btn btn-outline btn-sm" id="btnResetFilters">重置</button>
+    <!-- 数据状态与研判控制条 -->
+    <div class="table-bar">
+      <div class="table-bar-left">
+        当前共载入 <strong id="leadCountNumber">0</strong> 条真实线索资产 (云端全网同步状态: <span class="status-online">实时联机</span>)
       </div>
-
-      <div class="filter-group">
-        <span class="count-summary" id="tableCountSummary">--</span>
+      <div class="table-bar-right">
+        <span id="reevaluateStatus" class="reevaluate-status"></span>
+        <button class="btn btn-xs btn-outline" id="btnReevaluateAllJev" title="通过 Vercel Serverless 直连 TypeSafe 官方 System One (jev-latest) 大模型，对全量线索进行意图分级与成熟度打分">
+          触发 TypeSafe Jev API 全量重新研判
+        </button>
       </div>
-    </section>
+    </div>
 
-    <!-- 线索资产表格 -->
+    <!-- 10 列完整销售线索资产表格 -->
     <section class="table-card">
-      <div class="table-responsive">
-        <table class="lead-table" id="leadsTable">
+      <div class="table-wrap">
+        <table class="leads-table" id="leadsTable">
           <thead>
             <tr>
-              <th style="width: 110px;">时间</th>
-              <th style="min-width: 190px;">客户 / 企业</th>
-              <th style="width: 120px;">渠道</th>
-              <th style="min-width: 320px;">询盘情况分析简要</th>
-              <th style="width: 140px;">Jev 评级</th>
-              <th style="width: 140px; text-align: right;">操作</th>
+              <th style="width: 110px;">提交时间</th>
+              <th style="width: 130px;">客户姓名</th>
+              <th style="width: 180px;">企业邮箱</th>
+              <th style="width: 190px;">企业与职位</th>
+              <th style="width: 180px;">线索来源与获客场景</th>
+              <th style="min-width: 290px;">客户填写的具体采购与技术需求 (Project Requirements)</th>
+              <th style="width: 180px;">商机意图分级 (Jev System One)</th>
+              <th style="width: 120px;">成熟度评分 (满分 5.0)</th>
+              <th style="min-width: 230px;">系统建议跟进策略</th>
+              <th style="width: 130px; text-align: center;">专业跟进操作</th>
             </tr>
           </thead>
           <tbody id="leadsTableBody">
-            <!-- 动态注入行数据 -->
+            <!-- 动态注入 10 列表格数据 -->
           </tbody>
         </table>
       </div>
     </section>
 
-  </main>
-
-  <!-- 模态框 1: 线索录入工作台 -->
-  <div class="modal-overlay" id="modalIngest">
-    <div class="modal-container large">
-      <div class="modal-header">
-        <h3>录入线索</h3>
-        <button class="modal-close-btn" data-close="modalIngest">&times;</button>
-      </div>
-
-      <div class="modal-body">
-        <div class="modal-tabs">
-          <button class="tab-btn active" data-tab="tab-preset">预设表单</button>
-          <button class="tab-btn" data-tab="tab-text">自由文本</button>
-          <button class="tab-btn" data-tab="tab-csv">CSV 导入</button>
-          <button class="tab-btn" data-tab="tab-webhook">Webhook 接口</button>
-        </div>
-
-        <!-- 面板 1: 预设表单 -->
-        <div class="tab-panel active" id="tab-preset">
-          <div class="form-group">
-            <label class="form-label">渠道类型</label>
-            <select class="form-select" id="presetChannelSelect">
-              <option value="website_rfq">官网独立站重载动力询盘</option>
-              <option value="linkedin_lead_gen">LinkedIn 广告原生表单</option>
-              <option value="trade_show_booth">DroneX 航展展台对接</option>
-              <option value="supplier_pitch">外协加工/微电子供应商自荐</option>
-              <option value="google_ads">Google 搜索广告留资</option>
-            </select>
-          </div>
-
-          <div class="form-grid" id="presetFormFields">
-            <!-- 动态生成字段 -->
-          </div>
-
-          <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-            <button class="btn btn-primary" id="btnSubmitPresetForm">入库</button>
-          </div>
-        </div>
-
-        <!-- 面板 2: 自由文本 -->
-        <div class="tab-panel" id="tab-text">
-          <div class="form-group">
-            <label class="form-label">粘贴邮件或对话记录</label>
-            <textarea class="form-textarea" id="freeTextInput" rows="8" placeholder="粘贴客户原始邮件、WhatsApp 沟通记录或展会备忘录..."></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">指定渠道来源 (选填)</label>
-            <input type="text" class="form-input" id="freeTextChannel" placeholder="例如：WhatsApp / 邮件直发">
-          </div>
-
-          <div style="display: flex; justify-content: flex-end;">
-            <button class="btn btn-primary" id="btnSubmitFreeText">解析入库</button>
-          </div>
-        </div>
-
-        <!-- 面板 3: CSV 导入 -->
-        <div class="tab-panel" id="tab-csv">
-          <div class="form-group">
-            <label class="form-label">选择 CSV 文件</label>
-            <input type="file" id="csvFileInput" accept=".csv" class="form-input">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">或粘贴 CSV 内容</label>
-            <textarea class="form-textarea" id="csvTextInput" rows="6" placeholder="Name,Email,Company,MTOW,Requirements..."></textarea>
-          </div>
-
-          <div id="csvPreviewArea" style="display: none; flex-direction: column; gap: 6px;">
-            <div style="font-size: 11px; color: var(--text-muted);">解析预览 (<span id="csvRowCount">0</span> 条记录):</div>
-            <div style="max-height: 140px; overflow-y: auto; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; font-size: 11px;" id="csvPreviewTable"></div>
-          </div>
-
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-            <label style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
-              <input type="checkbox" id="csvSkipDuplicates" checked>
-              自动跳过重复记录
-            </label>
-            <button class="btn btn-primary" id="btnSubmitCSV">批量导入</button>
-          </div>
-        </div>
-
-        <!-- 面板 4: Webhook 接口 -->
-        <div class="tab-panel" id="tab-webhook">
-          <div class="code-snippet">
-            <pre id="curlSnippet">curl -X POST https://temporary-spry-fjord-j6hzfbe.vercel.app/api/ingest \
-  -H "Content-Type: application/json" \
-  -H "X-Channel-Source: 官网独立站 RFQ" \
-  -d '{
-    "name": "David Smith",
-    "email": "d.smith@aerovision.com",
-    "company": "AeroVision Systems",
-    "mtow": "45kg",
-    "voltage": "14S",
-    "requirements": "Need 3D STEP and dyno curves for heavy-lift inspection drone"
-  }'</pre>
-          </div>
-        </div>
-
-      </div>
-    </div>
   </div>
 
-  <!-- 模态框 2: 跟进邮件生成器 (左右双栏工作台) -->
+  <!-- 模态框: 北美工业级工程跟进邮件生成器 (左右双栏工作台 · 零图标规范) -->
   <div class="modal-overlay" id="modalEmail">
     <div class="modal-container email-modal-card">
       <div class="modal-header">
-        <h3>跟进邮件生成</h3>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <h3>跟进邮件生成</h3>
+          <span class="badge badge-success" style="font-size: 11px; font-weight: normal; padding: 2px 8px;">
+            100% 纯英文隔离保证 (Zero Chinese)
+          </span>
+        </div>
         <button class="modal-close-btn" data-close="modalEmail">&times;</button>
       </div>
 
-      <!-- 顶部客户简要栏 -->
+      <!-- 客户简要栏 -->
       <div class="email-modal-brief-bar">
         <div>
           <div style="font-size: 13px; font-weight: 600; color: var(--text-main);" id="emailModalClientTitle">--</div>
@@ -231,19 +108,19 @@
         <!-- 左栏：策略切角与主题行 -->
         <div class="email-col-left">
           <div class="form-group">
-            <label class="form-label">1. 针对询盘特异性策略切角</label>
+            <label class="form-label">1. 针对询盘特异性策略切角 (点击切换正文与主题行)</label>
             <div class="strategy-cards-container" id="emailStrategyCards"></div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">2. 可选邮件主题行 (严格 35~50 字符)</label>
+            <label class="form-label">2. 可选高打开率英文主题行 (严格 35~50 字符)</label>
             <div class="subject-list" id="emailSubjectList"></div>
           </div>
         </div>
 
-        <!-- 右栏：英文跟进正文 -->
+        <!-- 右栏：纯英文跟进正文 -->
         <div class="email-col-right">
-          <label class="form-label">3. 英文跟进正文 (纯文本 · 可直接微调)</label>
+          <label class="form-label">3. 纯英文工程跟进邮件正文 (Pure English · 可直接微调)</label>
           <textarea class="email-preview-box" id="emailBodyTextarea"></textarea>
         </div>
       </div>
@@ -251,44 +128,7 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btnOpenMailto">客户端发送</button>
         <button class="btn btn-primary" id="btnCopyEmail">复制完整主题与正文</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 模态框 3: 线索详情与 Jev 审计 -->
-  <div class="modal-overlay" id="modalDetail">
-    <div class="modal-container large">
-      <div class="modal-header">
-        <h3>线索详情与 Jev 审计</h3>
-        <button class="modal-close-btn" data-close="modalDetail">&times;</button>
-      </div>
-
-      <div class="modal-body" id="leadDetailContent"></div>
-
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-close="modalDetail">关闭</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 模态框 4: 设置 -->
-  <div class="modal-overlay" id="modalSettings">
-    <div class="modal-container">
-      <div class="modal-header">
-        <h3>系统设置</h3>
-        <button class="modal-close-btn" data-close="modalSettings">&times;</button>
-      </div>
-
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">TypeSafe API Key</label>
-          <input type="password" class="form-input" id="settingApiKey" placeholder="apikey_...">
-        </div>
-
-        <div style="display: flex; gap: 8px; margin-top: 10px;">
-          <button class="btn btn-primary" id="btnSaveSettings">保存</button>
-          <button class="btn btn-outline" id="btnTestJev">测试 Jev 联通</button>
-        </div>
+        <button class="btn btn-outline" data-close="modalEmail">关闭</button>
       </div>
     </div>
   </div>

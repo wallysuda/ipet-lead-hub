@@ -169,109 +169,185 @@ body {
   font-size: 12px;
 }
 
-/* 主内容布局容器 */
-.main-container {
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 20px 24px;
+/* 主页面布局容器 */
+.page-container {
+  width: 100%;
+  max-width: 100%;
+  padding: 16px 24px;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* 顶部操作区 */
+.hub-header {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* KPI 指标栏 (仅保留 线索总数 和 Tier 1 RFQ 两列) */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-}
-
-.stat-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 14px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  box-shadow: var(--shadow-sm);
-}
-
-.stat-label {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.stat-value {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--text-main);
-  font-family: var(--font-mono);
-}
-
-/* 筛选与搜索工具栏 */
-.toolbar-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 10px 16px;
-  display: flex;
+  justify-content: space-between;
+  align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
 }
 
-.filter-group {
+.hub-title-block {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hub-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.hub-subtitle {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.hub-actions {
+  display: flex;
+  gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
-.search-box {
-  min-width: 260px;
-}
-
-.search-box input {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-strong);
+.sync-status-badge {
+  font-size: 11px;
+  color: #059669;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 3px 8px;
   border-radius: 4px;
-  padding: 6px 12px;
-  color: var(--text-main);
-  font-size: 12px;
-  outline: none;
-}
-
-.search-box input:focus {
-  border-color: var(--border-focus);
-}
-
-.select-filter {
-  background: var(--bg-input);
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  padding: 6px 10px;
-  color: var(--text-main);
-  font-size: 12px;
-  outline: none;
-  cursor: pointer;
-}
-
-.select-filter:focus {
-  border-color: var(--border-focus);
-}
-
-.count-summary {
-  font-size: 12px;
-  color: var(--text-muted);
   font-weight: 500;
 }
 
-/* 数据资产表格 */
+.sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-green);
+  display: inline-block;
+}
+
+.btn-danger-text {
+  color: #dc2626 !important;
+}
+
+.btn-danger-text:hover {
+  background: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+}
+
+.btn-xs {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* 快捷粘贴录入新询盘卡片 */
+.paste-card {
+  background: #f8fafc;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.paste-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.paste-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.paste-card-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.paste-textarea {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  background: #ffffff;
+  color: var(--text-main);
+  box-sizing: border-box;
+  min-height: 54px;
+  line-height: 1.5;
+}
+
+.paste-textarea:focus {
+  border-color: var(--border-focus);
+}
+
+.paste-card-footer {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.paste-indicator {
+  font-size: 11px;
+  color: #059669;
+  font-weight: 500;
+}
+
+/* 数据状态与全量研判控制条 */
+.table-bar {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.table-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-online {
+  color: #059669;
+  font-weight: 600;
+}
+
+.table-bar-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.reevaluate-status {
+  font-size: 11px;
+  color: #059669;
+  font-weight: 500;
+}
+
+/* 数据资产表格卡片与容器 */
 .table-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
@@ -280,9 +356,83 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-.table-responsive {
+.table-wrap {
   width: 100%;
   overflow-x: auto;
+}
+
+.leads-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.leads-table th {
+  background-color: #f8fafc;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.leads-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12px;
+  vertical-align: top;
+  line-height: 1.45;
+}
+
+.leads-table tbody tr:hover {
+  background-color: var(--bg-hover);
+}
+
+/* 通用徽章体系 */
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.badge-success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-info {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.badge-warn {
+  background: rgba(217, 119, 6, 0.1);
+  color: #d97706;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+.badge-crit {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.badge-jev-live {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  font-size: 9px;
+  padding: 1px 4px;
+  margin-left: 4px;
+  border-radius: 4px;
+  vertical-align: middle;
+  cursor: help;
 }
 
 .lead-table {

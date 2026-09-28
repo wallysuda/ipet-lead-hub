@@ -369,6 +369,23 @@ class SyncService {
       channelsList: Array.from(channels)
     };
   }
+
+  // 保存与更新所有线索资产
+  saveLeads(leads) {
+    this.leads = leads;
+    this.saveToLocal();
+    this.notify();
+  }
+
+  // 清空本地导入线索并重置为初始种子
+  async clearCustomLeads() {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    this.leads = [];
+    await this.loadInitialSeed();
+    this.notify();
+  }
 }
 
 // 挂载全局与模块导出

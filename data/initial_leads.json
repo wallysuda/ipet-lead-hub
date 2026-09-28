@@ -1,5 +1,78 @@
 [
   {
+    "id": "LEAD-HUB-1790240886544-427",
+    "submitted_at": "2026-09-24 17:08",
+    "channel_source": "外部官网 WordPress Webhook",
+    "channel_scenario": "40kg 重载无人机动力总成选型",
+    "name": "Marcus Vance",
+    "email": "m.vance@vancetech-aero.com",
+    "company": "VanceTech Aerospace",
+    "job_title": "",
+    "phone": "",
+    "country": "",
+    "raw_text": "your-name: Marcus Vance contact-email: m.vance@vancetech-aero.com org-name: VanceTech Aerospace aircraft-weight: 40kg MTOW bus-voltage: 14S client-notes: Need heavy-lift coaxial propulsion dyno data for drone delivery",
+    "raw_requirements": "Need heavy-lift coaxial propulsion dyno data for drone delivery",
+    "fields_filled": {
+      "your-name": "Marcus Vance",
+      "contact-email": "m.vance@vancetech-aero.com",
+      "org-name": "VanceTech Aerospace",
+      "aircraft-weight": "40kg MTOW",
+      "bus-voltage": "14S",
+      "client-notes": "Need heavy-lift coaxial propulsion dyno data for drone delivery"
+    },
+    "analysis_brief": {
+      "采购诉求": "40kg 共轴重载动力总成选型与实测台架曲线 (Dyno Data RFQ)",
+      "飞行器形态": "共轴八旋翼 (Coaxial X8)",
+      "起飞重量": "40kg MTOW",
+      "核心技术指标": "母线工作电压 14S / 共轴动力驱动总成匹配",
+      "应用场景": "工业无人机物流配送 (Drone Delivery)",
+      "交付物诉求": "实测推力台架数据表 (Dyno Sheets)"
+    },
+    "detected_params": {
+      "mtow": "40kg",
+      "voltage": "14S",
+      "payload": "",
+      "thrust": "",
+      "propeller": "",
+      "uav_type": "共轴八旋翼 (Coaxial X8)",
+      "stage": "",
+      "quantity": ""
+    },
+    "technical_parameters": {
+      "mtow": "40kg",
+      "voltage": "14S",
+      "payload": "",
+      "thrust": "",
+      "propeller": "",
+      "uav_type": "共轴八旋翼 (Coaxial X8)",
+      "stage": "",
+      "quantity": ""
+    },
+    "status": "NEW",
+    "sync_version": 1,
+    "jev_analysis": {
+      "tier": "TIER_1_READY_RFQ",
+      "maturity_score": 4.5,
+      "has_pet_confusion": false,
+      "confidence": 0.67,
+      "recommended_action": "高价值紧急 OEM/研发商机！涉及工业无人机核心动力总成匹配，立即由工程团队发送专属推力台架曲线、选型建议与 3D STEP 下载链接。",
+      "probabilities": {
+        "TIER_3_EXPLORATORY": 0.04,
+        "TIER_2_TECH_SPEC": 0.21,
+        "DISQUALIFIED": 0,
+        "TIER_1_READY_RFQ": 0.75
+      },
+      "source": "jev_live",
+      "model": "jev-1.13.0",
+      "usage": {
+        "input_tokens": 657,
+        "output_tokens": 113
+      }
+    },
+    "created_at": "2026-09-24T09:02:15.609Z",
+    "updated_at": "2026-09-24T09:08:07.807Z"
+  },
+  {
     "id": "LEAD-CSV-1790219306961-1",
     "submitted_at": "2026-09-24 03:08",
     "name": "IPET客户留言 Alisha",
