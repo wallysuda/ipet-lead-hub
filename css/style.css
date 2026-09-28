@@ -380,7 +380,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .leads-table td {
@@ -396,11 +396,14 @@ body {
   background-color: var(--bg-hover);
 }
 
-/* 各列显示规格 */
-.cell-check { text-align: center; vertical-align: middle !important; }
+/* 各列显示规格 —— 全部顶端对齐，避免短字段居中导致整行错位 */
+.cell-check {
+  text-align: center;
+  vertical-align: top;
+  padding-top: 12px;
+}
 
 .cell-time {
-  vertical-align: top !important;
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.35;
@@ -412,7 +415,6 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  vertical-align: middle !important;
 }
 
 .cell-name strong { font-size: 12px; }
@@ -425,9 +427,6 @@ body {
 }
 .cell-email a:hover { text-decoration: underline; }
 
-.cell-org {
-  vertical-align: middle !important;
-}
 .cell-org strong {
   font-size: 12px;
 }
@@ -467,8 +466,7 @@ body {
 }
 
 .cell-score {
-  text-align: center;
-  vertical-align: middle !important;
+  text-align: left;
 }
 .score-num {
   font-family: var(--font-mono);
@@ -488,8 +486,7 @@ body {
 }
 
 .cell-action {
-  text-align: center;
-  vertical-align: middle !important;
+  text-align: left;
   white-space: nowrap;
 }
 .cell-action .btn {
