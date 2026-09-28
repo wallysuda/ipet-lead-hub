@@ -211,6 +211,11 @@
       if (wordHit('lastname') || cleaned === 'lastname' || cleaned === 'last_name' || rawLower.includes('last name') || cleaned.includes('lastname') || cleaned.includes('名') && cleaned.includes('姓') === false && rawLower.includes('last')) {
         return "last_name";
       }
+      // 非人名的 name 键：表单/活动/产品名等
+      if (/(campaign|form|account|product|project|file|user name|username|domain|brand|model|subject|ticket|order|invoice)[\s_-]*name/i.test(rawLower) ||
+          wordHit('campaign') || wordHit('subject') || cleaned.includes('campaignname') || cleaned.includes('formname')) {
+        return null;
+      }
       if (cleaned.includes("name") || cleaned.includes("姓名") || cleaned.includes("联系人") || cleaned.includes("称呼") || cleaned === "contact") {
         return "name";
       }
@@ -507,11 +512,10 @@
       if (reqParts.length && !raw["需求描述"]) {
         raw["需求描述"] = reqParts.join('\n').replace(/^[\s]*原始自由文本[:：]?\s*/,'').trim();
       }
-      // First Name + Last Name 合并
-      if (!raw["客户姓名"] && (raw["first_name"] || raw["last_name"])) {
-        raw["客户姓名"] = `${raw["first_name"] || ''} ${raw["last_name"] || ''}`.trim();
-      } else if (raw["客户姓名"] && raw["last_name"] && !String(raw["客户姓名"]).includes(String(raw["last_name"]))) {
-        raw["客户姓名"] = `${raw["客户姓名"]} ${raw["last_name"]}`.trim();
+      // First Name + Last Name 合并（两者齐全时优先，覆盖误入的 Campaign Name 等）
+      if (raw["first_name"] || raw["last_name"]) {
+        const merged = `${raw["first_name"] || ''} ${raw["last_name"] || ''}`.trim();
+        if (merged) raw["客户姓名"] = merged;
       }
 
       // 5.2 表格式粘贴：首行表头 + 后续一行数据（Tab / 多空格）
@@ -870,5 +874,7 @@
     module.exports = SmartSchemaNormalizer;
   } else {
     global.SmartSchemaNormalizer = SmartSchemaNormalizer;
+    if (typeof window !== "undefined") window.Normalizer = SmartSchemaNormalizer;
+    global.Normalizer = SmartSchemaNormalizer;
   }
 })(typeof window !== "undefined" ? window : global);

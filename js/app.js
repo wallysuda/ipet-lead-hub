@@ -27,6 +27,10 @@
     pasteLeadInput: document.getElementById('pasteLeadInput'),
     pasteSyncIndicator: document.getElementById('pasteSyncIndicator'),
     btnPasteLead: document.getElementById('btnPasteLead'),
+    btnPasteConfirm: document.getElementById('btnPasteConfirm'),
+    btnPasteCancel: document.getElementById('btnPasteCancel'),
+    pastePreview: document.getElementById('pastePreview'),
+    pastePreviewGrid: document.getElementById('pastePreviewGrid'),
 
     // 数据状态与全量研判控制条
     leadCountNumber: document.getElementById('leadCountNumber'),
@@ -799,7 +803,45 @@
       });
     }
 
-    // 5. 快捷粘贴输入框一键解析入库并生成邮件
+    // 5. 快捷粘贴：先解析预览，确认后再入库
+    let pendingPasteLead = null;
+
+    function renderPastePreview(lead) {
+      if (!el.pastePreview || !el.pastePreviewGrid) return;
+      const params = lead.detected_params || lead.technical_parameters || {};
+      const brief = lead.analysis_brief || {};
+      const rows = [
+        ['客户姓名', lead.name],
+        ['企业邮箱', lead.email],
+        ['企业', lead.company],
+        ['职位', lead.job_title],
+        ['电话', lead.phone],
+        ['渠道', lead.channel_source],
+        ['需求原文', lead.raw_requirements],
+        ['MTOW', params.mtow],
+        ['电压', params.voltage],
+        ['机型', params.uav_type],
+        ['项目阶段', params.stage],
+        ['采购诉求', brief['采购诉求']]
+      ];
+      el.pastePreviewGrid.innerHTML = rows.map(([k, v]) => {
+        const empty = !v;
+        return `<div class="paste-preview-item">
+          <label>${k}</label>
+          <div class="val ${empty ? 'empty' : 'ok'}">${escapeHtml(String(v || '（未识别）'))}</div>
+        </div>`;
+      }).join('');
+      el.pastePreview.removeAttribute('hidden');
+    }
+
+    function hidePastePreview() {
+      if (el.pastePreview) el.pastePreview.setAttribute('hidden', '');
+      if (el.btnPasteConfirm) el.btnPasteConfirm.setAttribute('hidden', '');
+      if (el.btnPasteCancel) el.btnPasteCancel.setAttribute('hidden', '');
+      if (el.btnPasteLead) el.btnPasteLead.removeAttribute('hidden');
+      pendingPasteLead = null;
+    }
+
     if (el.btnPasteLead) {
       el.btnPasteLead.addEventListener('click', async () => {
         const text = (el.pasteLeadInput?.value || '').trim();
@@ -807,24 +849,46 @@
           showToast('请在此粘贴后台客户留言或邮件文本', 'warn');
           return;
         }
-
-        if (el.pasteSyncIndicator) {
-          el.pasteSyncIndicator.innerText = '正在智能结构化解析与 Jev 研判...';
-        }
-
         try {
-          const normalized = window.Normalizer ? window.Normalizer.parseFreeText(text, '官网商业采购与技术选型') : { raw_text: text };
-          const res = await window.syncService.ingestLead(normalized);
+          const normalized = window.Normalizer
+            ? window.Normalizer.parseFreeText(text, '多渠道粘贴录入')
+            : { raw_text: text };
+          pendingPasteLead = normalized;
+          renderPastePreview(normalized);
+          if (el.btnPasteConfirm) el.btnPasteConfirm.removeAttribute('hidden');
+          if (el.btnPasteCancel) el.btnPasteCancel.removeAttribute('hidden');
+          if (el.btnPasteLead) el.btnPasteLead.setAttribute('hidden', '');
+          if (el.pasteSyncIndicator) el.pasteSyncIndicator.innerText = '解析完成，请核对下方字段';
+        } catch (e) {
+          showToast('解析失败: ' + e.message, 'error');
+        }
+      });
+    }
 
+    if (el.btnPasteCancel) {
+      el.btnPasteCancel.addEventListener('click', () => {
+        hidePastePreview();
+        if (el.pasteSyncIndicator) el.pasteSyncIndicator.innerText = '';
+        showToast('已取消入库', 'info');
+      });
+    }
+
+    if (el.btnPasteConfirm) {
+      el.btnPasteConfirm.addEventListener('click', async () => {
+        if (!pendingPasteLead || !window.syncService) return;
+        const normalized = pendingPasteLead;
+        if (el.pasteSyncIndicator) {
+          el.pasteSyncIndicator.innerText = '正在入库并研判...';
+        }
+        try {
+          const res = await window.syncService.ingestLead(normalized);
+          hidePastePreview();
+          el.pasteLeadInput.value = '';
           if (el.pasteSyncIndicator) {
             el.pasteSyncIndicator.innerText = '已完成入库并同步云端';
             setTimeout(() => { if (el.pasteSyncIndicator) el.pasteSyncIndicator.innerText = ''; }, 3000);
           }
-
-          el.pasteLeadInput.value = '';
-          showToast('线索已成功入库并生成跟进策略', 'success');
-
-          // 自动弹出专业跟进邮件生成工作台（含决策卡与 Pass/拒绝分流）
+          showToast('线索已入库', 'success');
           if (res && res.lead && res.lead.id) {
             const lead = res.lead;
             try {
@@ -839,14 +903,11 @@
               }
             } catch (e) {}
             openEmailModal(res.lead.id);
-            // 入库后自动背调（可在工作台修正）
-            if (res.lead && window.syncService) {
-              runEnrichment(res.lead, { silent: true });
-            }
+            runEnrichment(res.lead, { silent: true });
           }
         } catch (err) {
           console.error('Paste lead error:', err);
-          showToast('解析入库失败: ' + err.message, 'error');
+          showToast('入库失败: ' + err.message, 'error');
           if (el.pasteSyncIndicator) el.pasteSyncIndicator.innerText = '';
         }
       });

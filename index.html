@@ -48,7 +48,15 @@
       <textarea id="pasteLeadInput" class="paste-textarea" rows="2" placeholder="在此粘贴后台客户留言或邮件文本（例如包含 姓名: / 公司: / E-mail: / 电话: / 内容: / 无人机类型: / Project Stage: 等多行内容）..."></textarea>
       <div class="paste-card-footer">
         <span id="pasteSyncIndicator" class="paste-indicator"></span>
-        <button class="btn btn-sm btn-primary" id="btnPasteLead">智能解析入库并生成跟进邮件</button>
+        <button class="btn btn-sm btn-primary" id="btnPasteLead">解析预览</button>
+        <button class="btn btn-sm btn-primary" id="btnPasteConfirm" hidden>确认入库并生成邮件</button>
+        <button class="btn btn-sm btn-outline" id="btnPasteCancel" hidden>取消</button>
+      </div>
+
+      <!-- 解析预览：入库前人工核对识别结果 -->
+      <div class="paste-preview" id="pastePreview" hidden>
+        <div class="paste-preview-title">解析预览 · 请核对后再入库（识别有误可回改原文重新解析）</div>
+        <div class="paste-preview-grid" id="pastePreviewGrid"></div>
       </div>
     </section>
 
