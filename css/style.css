@@ -1143,3 +1143,18 @@ body {
 @media (max-width: 720px) {
   .decision-card { grid-template-columns: 1fr; }
 }
+
+.no-send-banner {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.no-send-banner[hidden] {
+  display: none !important;
+}

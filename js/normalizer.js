@@ -4,68 +4,80 @@
  */
 
 (function (global) {
-  // 别名字典 (支持中英文主流表单字段的模糊推断)
+  // 别名字典 (支持中英文主流表单字段的模糊推断 + 多渠道异构字段)
   const SEMANTIC_DICTIONARY = {
     name: [
-      "name", "full name", "fullname", "first name", "firstname", "contact name", "contact",
-      "customer name", "user name", "representative", "visitor", "姓名", "客户姓名", "客户",
-      "联系人", "您的称呼", "全名", "称谓", "访客", "留言人", "业务代表姓名"
+      "name", "full name", "fullname", "first name", "firstname", "last name", "lastname", "contact name", "contact",
+      "customer name", "user name", "representative", "visitor", "your name", "your-name", "your_name",
+      "applicant", "sender", "from name", "from", "lead name", "client name",
+      "姓名", "客户姓名", "客户", "联系人", "您的称呼", "全名", "称谓", "访客", "留言人", "业务代表姓名",
+      "联系人姓名", "客户名称", "怎么称呼", "称呼"
     ],
     email: [
-      "email", "e-mail", "work email", "business email", "corporate email", "contact email",
-      "company email", "email address", "邮箱", "电子邮箱", "企业邮箱", "工作邮箱", "电子信箱"
+      "email", "e-mail", "e_mail", "mail", "work email", "business email", "corporate email", "contact email",
+      "company email", "email address", "your email", "your-email", "your_email", "work_email",
+      "邮箱", "电子邮箱", "企业邮箱", "工作邮箱", "电子信箱", "联系邮箱", "电子邮件"
     ],
     company: [
-      "company", "company name", "organization", "agency", "institution", "firm", "business",
-      "enterprise", "workplace", "公司", "企业名称", "单位名称", "所属机构", "机构", "单位", "公司名"
+      "company", "company name", "company_name", "companyname", "organization", "organisation", "agency", "institution", "firm", "business",
+      "enterprise", "workplace", "employer", "org", "org name", "org-name", "business name", "your company",
+      "公司", "企业名称", "单位名称", "所属机构", "机构", "单位", "公司名", "企业", "工作单位", "贵司", "公司全称"
     ],
     job_title: [
-      "job title", "jobtitle", "title", "position", "role", "designation", "profession",
-      "职位", "职务", "头衔", "岗位", "职称", "客户职位"
+      "job title", "jobtitle", "job_title", "title", "position", "role", "designation", "profession", "occupation",
+      "job", "job role", "work title",
+      "职位", "职务", "头衔", "岗位", "职称", "客户职位", "担任职位", "从事职位"
     ],
     phone: [
-      "phone", "phone number", "mobile", "tel", "telephone", "whatsapp", "cell",
-      "电话", "联系电话", "手机", "手机号码", "电话号码"
+      "phone", "phone number", "phone_number", "phonenumber", "mobile", "mobile number", "tel", "telephone",
+      "whatsapp", "wechat", "cell", "contact number", "contact phone", "your phone",
+      "电话", "联系电话", "手机", "手机号码", "电话号码", "手机电话", "联系方式", "微信"
     ],
     country: [
-      "country", "region", "nation", "location", "国家", "地区", "所在地", "国别"
+      "country", "region", "nation", "location", "area", "city", "state", "address", "country region",
+      "国家", "地区", "所在地", "国别", "城市", "省份", "地址", "区域"
     ],
     requirements: [
-      "requirements", "inquiry", "message", "comments", "project description", "notes", "request",
-      "needs", "details", "project background", "需求描述", "诉求", "留言", "咨询内容", "合作诉求",
-      "留言内容", "备注", "需求", "项目背景", "采购诉求", "业务类型", "工艺能力介绍"
+      "requirements", "requirement", "inquiry", "enquiry", "message", "comments", "comment", "project description",
+      "notes", "note", "request", "needs", "details", "project background", "description", "details",
+      "project requirements", "your message", "your message here", "tell us more", "additional info", "remarks",
+      "需求描述", "诉求", "留言", "咨询内容", "合作诉求", "留言内容", "备注", "需求", "项目背景", "采购诉求",
+      "业务类型", "工艺能力介绍", "详细需求", "具体需求", "补充说明", "问题描述", "咨询详情", "内容", "正文"
     ],
     mtow: [
-      "mtow", "takeoff weight", "max takeoff weight", "maximum takeoff weight", "gross weight",
-      "起飞重量", "最大起飞重量", "整机起飞重量", "整机重量", "重量需求"
+      "mtow", "takeoff weight", "max takeoff weight", "maximum takeoff weight", "gross weight", "max weight",
+      "all up weight", "auw", "takeoff mass", "最大起飞重量", "起飞重量", "整机起飞重量", "整机重量", "重量需求",
+      "起飞全重", "最大重量"
     ],
     voltage: [
-      "voltage", "bus voltage", "battery voltage", "operating voltage", "power voltage",
-      "工作电压", "母线电压", "电池电压", "电压", "电源架构"
+      "voltage", "bus voltage", "battery voltage", "operating voltage", "power voltage", "dc voltage", "system voltage",
+      "工作电压", "母线电压", "电池电压", "电压", "电源架构", "供电电压", "额定电压"
     ],
     payload: [
-      "payload", "payload capacity", "max payload", "sensor load", "载荷", "载荷能力", "载重量",
-      "任务载荷", "载重需求", "载重"
+      "payload", "payload capacity", "max payload", "sensor load", "payload weight", "load capacity",
+      "载荷", "载荷能力", "载重量", "任务载荷", "载重需求", "载重", "有效载荷", "挂载"
     ],
     thrust: [
-      "thrust", "hover thrust", "peak thrust", "rated thrust", "per axis thrust",
-      "推力", "悬停推力", "峰值推力", "额定推力", "单轴推力"
+      "thrust", "hover thrust", "peak thrust", "rated thrust", "per axis thrust", "max thrust", "pull force",
+      "推力", "悬停推力", "峰值推力", "额定推力", "单轴推力", "拉力"
     ],
     propeller: [
-      "propeller", "prop", "blade", "prop size", "propeller diameter",
-      "螺旋桨", "桨叶", "桨尺寸", "螺旋桨尺寸", "桨叶规格"
+      "propeller", "prop", "props", "blade", "prop size", "propeller diameter", "prop size inch",
+      "螺旋桨", "桨叶", "桨尺寸", "螺旋桨尺寸", "桨叶规格", "桨规格"
     ],
     uav_type: [
-      "airframe", "uav type", "drone type", "configuration", "airframe configuration", "layout",
-      "飞行器形态", "机型形态", "构型", "飞行平台", "飞行器类型"
+      "airframe", "uav type", "drone type", "uav type", "configuration", "airframe configuration", "layout",
+      "drone type", "aircraft type", "platform", "multirotor", "vtol type",
+      "飞行器形态", "机型形态", "构型", "飞行平台", "飞行器类型", "机型", "无人机类型", "平台类型"
     ],
     stage: [
-      "project stage", "development stage", "timeline stage", "status",
-      "研发阶段", "项目阶段", "当前阶段", "开发阶段", "试飞排期"
+      "project stage", "development stage", "timeline stage", "status", "project status", "phase", "timeline",
+      "development phase", "program stage",
+      "研发阶段", "项目阶段", "当前阶段", "开发阶段", "试飞排期", "项目进度", "阶段"
     ],
     quantity: [
-      "quantity", "volume", "forecast", "units", "batch size", "annual volume",
-      "数量", "采购量", "预估采购量", "年采购量", "首批打样套数", "需求套数"
+      "quantity", "volume", "forecast", "units", "batch size", "annual volume", "qty", "order qty", "est qty",
+      "数量", "采购量", "预估采购量", "年采购量", "首批打样套数", "需求套数", "台数", "套数"
     ]
   };
 
@@ -400,7 +412,7 @@
       return finalLead;
     },
 
-    // 5. 自由非结构化文本/聊天记录智能 NLP 解析器
+    // 5. 自由非结构化文本/聊天记录智能 NLP 解析器（兼容多渠道异构粘贴）
     parseFreeText: function (freeText, channelHint = "销售初聊 / WhatsApp 沟通记录") {
       const text = String(freeText || "").trim();
       if (!text) return null;
@@ -409,44 +421,147 @@
         "原始自由文本": text
       };
 
-      // 提取邮箱
-      const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-      if (emailMatch) raw["电子邮箱"] = emailMatch[1];
+      // 5.0 渠道自动识别
+      const ch = this.detectChannel(text, channelHint);
+      if (ch) raw["渠道"] = ch;
 
-      // 提取电话 (支持 WhatsApp / 国际区号)
-      const phoneMatch = text.match(/(?:\+?\d{1,4}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/);
-      if (phoneMatch && phoneMatch[0].length >= 7) raw["联系电话"] = phoneMatch[0].trim();
-
-      // 提取公司名称 (优先匹配显式标签 Company / Organization / 公司 / 企业 / 单位)
-      let comp = "";
-      const explicitComp = text.match(/(?:company|organization|org|firm|business|公司|企业|单位)[:：]\s*([^\r\n,;]+)/i);
-      if (explicitComp) {
-        comp = explicitComp[1].trim();
-      } else {
-        const fromComp = text.match(/\bfrom\s+([A-Z][A-Za-z0-9\s&.,-]{2,30})/);
-        if (fromComp && !fromComp[1].toLowerCase().includes("china") && !fromComp[1].toLowerCase().includes("ipet")) {
-          comp = fromComp[1].trim();
+      // 5.1 先扫 key:value / key：value / key = value 行（表单导出、后台留言、邮件头）
+      const kvRe = /^[\s>*-]*([^\n:：=]{1,40})[:：=]\s*(.+)$/gm;
+      let kvHit = 0;
+      let m;
+      const reqParts = [];
+      while ((m = kvRe.exec(text)) !== null) {
+        const key = m[1].trim();
+        const val = m[2].trim();
+        if (!val || val.length > 2000) continue;
+        const entity = this.detectEntityField(key);
+        if (entity && entity !== 'requirements' && !raw[this._entityToRawKey(entity)]) {
+          raw[this._entityToRawKey(entity)] = val;
+          kvHit++;
+        } else if (entity === 'requirements') {
+          reqParts.push(val);
+        } else if (/message|inquiry|comment|detail|requirement|留言|需求|内容|说明/i.test(key) && val.length > 8) {
+          reqParts.push(val);
         }
       }
-      if (comp) raw["公司名称"] = comp;
+      if (reqParts.length && !raw["需求描述"]) {
+        raw["需求描述"] = reqParts.join('\n');
+      }
 
-      // 提取联系人姓名 (支持 From: Name <email> 或 Name: / 姓名: / 联系人: / I am / This is)
-      let name = "";
-      const fromHeader = text.match(/^From:\s*([A-Za-z\s.'-]+?)(?:\s*<[^>]+>|$)/im);
-      if (fromHeader && fromHeader[1].trim()) {
-        name = fromHeader[1].trim();
-      } else {
-        const explicitName = text.match(/(?:full\s*name|contact\s*name|name|姓名|联系人|联系姓名)[:：]\s*([A-Za-z\s.'-]+)/i);
-        if (explicitName) {
-          name = explicitName[1].trim();
+      // 5.2 表格式粘贴：首行表头 + 后续一行数据（Tab / 多空格）
+      if (kvHit === 0) {
+        const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        if (lines.length >= 2) {
+          const sep = lines[0].includes('\t') ? '\t' : null;
+          const heads = sep ? lines[0].split(sep).map(s => s.trim()) : null;
+          const vals = sep ? lines[1].split(sep).map(s => s.trim()) : null;
+          if (heads && vals && heads.length >= 2 && heads.length === vals.length) {
+            heads.forEach((h, i) => {
+              const entity = this.detectEntityField(h);
+              if (entity && vals[i]) raw[this._entityToRawKey(entity)] = vals[i];
+            });
+          }
+        }
+      }
+
+      // 5.3 邮箱 / 电话 / 公司 / 姓名 兜底抽取
+      if (!raw["电子邮箱"]) {
+        const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        if (emailMatch) raw["电子邮箱"] = emailMatch[1];
+      }
+
+      if (!raw["联系电话"]) {
+        const phoneMatch = text.match(/(?:\+?\d{1,4}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/);
+        if (phoneMatch && phoneMatch[0].length >= 7) raw["联系电话"] = phoneMatch[0].trim();
+      }
+
+      if (!raw["公司名称"]) {
+        let comp = "";
+        const explicitComp = text.match(/(?:company|organization|organisation|org name|firm|business|company name|公司|企业|单位|工作单位|贵司)[:：]\s*([^\r\n,;]{2,60})/i);
+        if (explicitComp) {
+          comp = explicitComp[1].trim().split(/\s{2,}|\t/)[0];
         } else {
-          const introName = text.match(/(?:this is|my name is|i am|i'm)\s+([A-Z][A-Za-z\s]{1,20})/i);
-          if (introName) name = introName[1].trim();
+          const fromComp = text.match(/\bfrom\s+([A-Z][A-Za-z0-9\s&.,-]{2,30}?)(?=[.,;]|\s+we\s|\s+i\s|\s+need|\s+looking|\n|$)/i);
+          if (fromComp && !fromComp[1].toLowerCase().includes("china") && !fromComp[1].toLowerCase().includes("ipet")) {
+            comp = fromComp[1].trim();
+          }
         }
+        if (comp) raw["公司名称"] = comp.replace(/\.$/, '').trim();
       }
-      if (name) raw["客户姓名"] = name;
 
-      return this.normalize(raw, channelHint);
+      if (!raw["客户姓名"]) {
+        let name = "";
+        const fromHeader = text.match(/^From:\s*([A-Za-z\s.'-]+?)(?:\s*<[^>]+>|$)/im);
+        if (fromHeader && fromHeader[1].trim()) {
+          name = fromHeader[1].trim();
+        } else {
+          const explicitName = text.match(/(?:full\s*name|contact\s*name|first\s*name|name|姓名|联系人|联系姓名|怎么称呼)[:：]\s*([A-Za-z\s.'-]{2,40}|[一-龥]{2,10})/i);
+          if (explicitName) {
+            name = explicitName[1].trim();
+          } else {
+            const introName = text.match(/(?:this is|my name is|i am|i'm)\s+([A-Z][A-Za-z\s]{1,20})/i);
+            if (introName) name = introName[1].trim();
+          }
+        }
+        // 去掉误带的邮箱/尖括号
+        name = name.replace(/<[^>]+>/g, '').replace(/[\w.+-]+@[\w.-]+\.\w+/g, '').trim();
+        if (name) raw["客户姓名"] = name;
+      }
+
+      // 5.4 若仍无需求正文，用去掉已识别键值后的剩余文本
+      if (!raw["需求描述"]) {
+        const leftover = text
+          .replace(/^[^\n:：=]{1,40}[:：=].*$/gm, '')
+          .replace(/[\w.+-]+@[\w.-]+\.\w+/g, '')
+          .trim();
+        if (leftover.length > 15) raw["需求描述"] = leftover.slice(0, 4000);
+      }
+
+      // 姓名统一清洗：去邮箱、尖括号、多余空白
+      if (raw["客户姓名"]) {
+        raw["客户姓名"] = String(raw["客户姓名"])
+          .replace(/<[^>]+>/g, '')
+          .replace(/[\w.+-]+@[\w.-]+\.\w+/g, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+      }
+
+      return this.normalize(raw, channelHint || ch || "多渠道粘贴录入");
+    },
+
+    _entityToRawKey: function (entity) {
+      const map = {
+        name: '客户姓名',
+        email: '电子邮箱',
+        company: '公司名称',
+        job_title: '职位',
+        phone: '联系电话',
+        country: '国家',
+        requirements: '需求描述',
+        mtow: 'mtow',
+        voltage: 'voltage',
+        payload: 'payload',
+        thrust: 'thrust',
+        propeller: 'propeller',
+        uav_type: 'uav_type',
+        stage: 'stage',
+        quantity: 'quantity'
+      };
+      return map[entity] || entity;
+    },
+
+    /** 渠道自动识别 */
+    detectChannel: function (text, hint) {
+      const t = String(text || '').toLowerCase();
+      if (!hint) {
+        if (/linkedin|lead gen|campaign/.test(t)) return 'LinkedIn Lead Gen Form';
+        if (/whatsapp|telegram|skype/.test(t)) return '即时通讯询盘';
+        if (/wordpress|contact form|cf7|wpforms|typeform/.test(t)) return '官网表单';
+        if (/from:\s|subject:\s|sent from my/.test(t)) return '邮件询盘';
+        if (/dronex|xponential|expo|booth/.test(t)) return '展会登记';
+        return '多渠道粘贴录入';
+      }
+      return hint;
     },
 
     // 6. 万能 CSV 解析器（支持自动表头识别与批量导入）

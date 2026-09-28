@@ -91,15 +91,44 @@
 
   function updateFunnel(leads) {
     const list = (leads || []).filter(l => !l.deleted_at);
-    const t1 = list.filter(l => l.jev_analysis && l.jev_analysis.tier === 'TIER_1_READY_RFQ').length;
-    const t2 = list.filter(l => l.jev_analysis && l.jev_analysis.tier === 'TIER_2_TECH_SPEC').length;
+    const grades = list.map(l => resolveIntentGrade(l));
+    const g5 = grades.filter(g => g.code === 'G5_RRFQ').length;
+    const g4 = grades.filter(g => g.code === 'G4_SPEC').length;
     const emailed = list.filter(l => l.email_generated_at || l.status === 'emailed').length;
     const followed = list.filter(l => l.status === 'followed_up' || l.followed_up_at).length;
     if (el.funnelTotal) el.funnelTotal.textContent = String(list.length);
-    if (el.funnelT1) el.funnelT1.textContent = String(t1);
-    if (el.funnelT2) el.funnelT2.textContent = String(t2);
+    if (el.funnelT1) el.funnelT1.textContent = String(g5);
+    if (el.funnelT2) el.funnelT2.textContent = String(g4);
     if (el.funnelEmailed) el.funnelEmailed.textContent = String(emailed);
     if (el.funnelFollowed) el.funnelFollowed.textContent = String(followed);
+  }
+
+  /** 统一取 G0–G5（缓存到 lead 上，避免反复重算） */
+  function resolveIntentGrade(lead) {
+    if (!lead) return { code: 'G3_NURTURE', label: 'G3 培育 · 补参跟进', short: '培育', badge: 'warn', maturity: 0 };
+    if (lead._intent_grade && lead._intent_grade_at === lead.updated_at) {
+      return lead._intent_grade;
+    }
+    let grade;
+    try {
+      if (window.InquiryResponder && window.InquiryResponder.classifyIntent) {
+        grade = window.InquiryResponder.classifyIntent(lead);
+      }
+    } catch (e) {}
+    if (!grade) {
+      const ja = lead.jev_analysis || {};
+      const t = ja.tier || '';
+      grade = {
+        code: t === 'TIER_1_READY_RFQ' ? 'G5_RRFQ' : t === 'TIER_2_TECH_SPEC' ? 'G4_SPEC' : t === 'DISQUALIFIED' ? 'G0_PASS' : 'G3_NURTURE',
+        label: t === 'TIER_1_READY_RFQ' ? 'G5 热商机 · RFQ' : t === 'TIER_2_TECH_SPEC' ? 'G4 资料 · 规格推进' : t === 'DISQUALIFIED' ? 'G0 无效 · Pass' : 'G3 培育 · 补参跟进',
+        short: '—',
+        badge: t === 'TIER_1_READY_RFQ' ? 'success' : t === 'TIER_2_TECH_SPEC' ? 'info' : t === 'DISQUALIFIED' ? 'crit' : 'warn',
+        maturity: ja.maturity_score || 0
+      };
+    }
+    lead._intent_grade = grade;
+    lead._intent_grade_at = lead.updated_at;
+    return grade;
   }
 
   function getSelectedLeads() {
@@ -130,7 +159,12 @@
 
     let list = (leads || []).slice();
     if (tier) {
-      list = list.filter(l => (l.jev_analysis && l.jev_analysis.tier) === tier);
+      list = list.filter(l => {
+        const g = resolveIntentGrade(l);
+        if (g.code === tier) return true;
+        // 兼容旧 Tier 筛选
+        return (l.jev_analysis && l.jev_analysis.tier) === tier;
+      });
     }
     if (q) {
       list = list.filter(l => {
@@ -923,22 +957,17 @@
 
     leads.forEach((l) => {
       const j = l.jev_analysis || {
-        tier: "TIER_1_READY_RFQ",
-        maturity_score: 4.8,
-        confidence: 0.96,
-        recommended_action: "高价值紧急 OEM/研发商机！涉及工业无人机核心动力总成匹配，立即由工程团队发送专属推力台架曲线、选型建议与 3D STEP 下载链接。"
+        tier: "TIER_3_EXPLORATORY",
+        maturity_score: 0
       };
 
-      const tierLabel = j.tier === 'TIER_1_READY_RFQ' ? 'Tier 1: 明确采购/研发商机' :
-                        j.tier === 'TIER_2_TECH_SPEC' ? 'Tier 2: 索取技术规格表' :
-                        j.tier === 'TIER_3_EXPLORATORY' ? 'Tier 3: 初级模糊意向' : '无效: 宠物/玩具误点';
-      const badge = j.tier === 'TIER_1_READY_RFQ' ? 'badge-success' :
-                    j.tier === 'TIER_2_TECH_SPEC' ? 'badge-info' :
-                    j.tier === 'TIER_3_EXPLORATORY' ? 'badge-warn' : 'badge-crit';
+      const grade = resolveIntentGrade(l);
+      const tierLabel = grade.label;
+      const badge = `badge-${grade.badge}`;
 
       const isLiveApi = j.source === 'jev_live';
       const liveBadge = isLiveApi ? `
-        <span class="badge-jev-live" title="TypeSafe Jev (${escapeHtml(j.model || 'jev-1.13.0')}) 真实大模型 API 研判结果 (置信度: ${Math.round((j.confidence || 0.95)*100)}%)">Jev Live API</span>
+        <span class="badge-jev-live" title="TypeSafe Jev (${escapeHtml(j.model || 'jev-1.13.0')}) 真实大模型 API 研判结果 (置信度: ${Math.round((j.confidence || 0.95)*100)}%)">Jev Live</span>
       ` : '';
 
       const analyzedFields = synthesizeLeadFields(l);
@@ -992,11 +1021,13 @@
           <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.35;">${escapeHtml(sourceInfo.scenario)}</div>
         </td>
         <td style="max-width: 300px;">${fieldsHtml}</td>
-        <td><span class="badge ${badge}">${tierLabel}</span>${liveBadge}</td>
-        <td><strong style="font-family: var(--font-mono); font-size: 13px; color: ${j.maturity_score >= 4.0 ? '#059669' : '#d97706'};">${(j.maturity_score || 0).toFixed(1)} / 5.0</strong></td>
-        <td style="font-size: 11px; color: var(--text-muted); max-width: 250px; line-height: 1.4;">${escapeHtml(j.recommended_action || '-')}</td>
+        <td><span class="badge ${badge}">${tierLabel}</span>${liveBadge}
+          <div style="margin-top:4px;font-size:10px;color:var(--text-muted);">${escapeHtml(grade.primary_action || '')}</div>
+        </td>
+        <td><strong style="font-family: var(--font-mono); font-size: 13px; color: ${(grade.maturity || 0) >= 4.0 ? '#059669' : '#d97706'};">${(grade.maturity || 0).toFixed(1)} / 5.0</strong></td>
+        <td style="font-size: 11px; color: var(--text-muted); max-width: 250px; line-height: 1.4;">${escapeHtml(j.recommended_action || grade.primary_action || '-')}</td>
         <td style="text-align: center;">
-          <button class="btn btn-xs btn-primary btn-action-email" data-id="${escapeHtml(l.id)}" style="white-space: nowrap;">生成专业英文邮件</button>
+          <button class="btn btn-xs btn-primary btn-action-email" data-id="${escapeHtml(l.id)}" style="white-space: nowrap;">${grade.code === 'G0_PASS' ? '处理 · Pass' : grade.code === 'G1_DECLINE' ? '生成拒绝函' : '生成专业英文邮件'}</button>
         </td>
       `;
       el.leadsTableBody.appendChild(tr);
@@ -1067,11 +1098,44 @@
     currentEmailLead = lead;
     currentEmailAnalysis = window.InquiryResponder.analyzeLead(lead);
 
-    // 有效询盘判定 + 决策卡
-    const validity = window.InquiryResponder.judgeValidity(lead, currentEmailAnalysis);
+    // 统一意图分级 G0–G5
+    const intent = window.InquiryResponder.classifyIntent
+      ? window.InquiryResponder.classifyIntent(lead, currentEmailAnalysis)
+      : null;
+    const validity = (intent && intent.validity) || window.InquiryResponder.judgeValidity(lead, currentEmailAnalysis);
     currentEmailAnalysis.validity = validity;
+    if (intent) {
+      currentEmailAnalysis.intent_grade = intent;
+      lead.intent_grade = intent.code;
+      lead.intent_label = intent.label;
+    }
+
     const card = window.InquiryResponder.buildDecisionCard(lead, currentEmailAnalysis);
-    renderDecisionCard(card, validity);
+    renderDecisionCard(card, validity, intent);
+
+    // 标题与分级 chip
+    const gradeChip = document.getElementById('emailModalGradeChip');
+    const titleEl = document.getElementById('emailModalTitle');
+    const noSend = document.getElementById('noSendBanner');
+    if (gradeChip && intent) {
+      gradeChip.textContent = intent.label;
+      gradeChip.className = `badge badge-${intent.badge}`;
+      gradeChip.style.fontSize = '11px';
+      gradeChip.style.fontWeight = 'normal';
+      gradeChip.style.padding = '2px 8px';
+    }
+    if (titleEl) {
+      titleEl.textContent =
+        validity.disposition === 'PASS' ? '无效询盘处理台' :
+        validity.disposition === 'DECLINE' ? '礼貌拒绝函工作台' :
+        validity.disposition === 'NEED_INFO' ? '补参短问工作台' :
+        validity.disposition === 'SUPPLIER' ? '供应链收件工作台' :
+        '跟进邮件工作台';
+    }
+    if (noSend) {
+      if (validity.disposition === 'PASS') noSend.removeAttribute('hidden');
+      else noSend.setAttribute('hidden', '');
+    }
 
     // 记录邮件生成，驱动漏斗（Pass 不算已发邮件）
     if (validity.disposition !== 'PASS' && !lead.email_generated_at) {
@@ -1084,15 +1148,13 @@
 
     // 渲染头部
     el.emailModalClientTitle.innerText = `${currentEmailAnalysis.callName} (${currentEmailAnalysis.cleanEnglishCompany})`;
-    el.emailModalClientSub.innerText = `${currentEmailAnalysis.industryProfile} · ${currentEmailAnalysis.product}`;
+    el.emailModalClientSub.innerText = `${currentEmailAnalysis.industryProfile} · ${currentEmailAnalysis.product || ''}`;
 
     let personaTag = `<span class="badge badge-success">商业整机 OEM</span>`;
     if (currentEmailAnalysis.persona === 'TYPE_A_ACADEMIC') personaTag = `<span class="badge badge-info">高校科研团队</span>`;
     else if (currentEmailAnalysis.persona === 'TYPE_S_SUPPLIER') personaTag = `<span class="badge badge-warn">外协供应链</span>`;
     else if (currentEmailAnalysis.persona === 'TYPE_D_DISQUALIFIED') personaTag = `<span class="badge badge-crit">业务边界回绝</span>`;
-    if (validity.disposition === 'PASS') personaTag = `<span class="badge badge-crit">${escapeHtml(validity.label)}</span>`;
-    else if (validity.disposition === 'DECLINE') personaTag = `<span class="badge badge-warn">${escapeHtml(validity.label)}</span>`;
-    else if (validity.disposition === 'NEED_INFO') personaTag = `<span class="badge badge-warn">${escapeHtml(validity.label)}</span>`;
+    if (intent) personaTag += ` <span class="badge badge-${intent.badge}">${escapeHtml(intent.short)}</span>`;
     el.emailModalPersonaBadge.innerHTML = personaTag;
 
     // 策略切角（含 Pass / 拒绝 / 补参分流）
@@ -1102,7 +1164,7 @@
     el.modalEmail.classList.add('active');
   }
 
-  function renderDecisionCard(card, validity) {
+  function renderDecisionCard(card, validity, intent) {
     const host = document.getElementById('decisionCard');
     if (!host || !card) return;
     const v = validity || card.validity;
@@ -1114,6 +1176,10 @@
       ? card.params_missing.map(x => `<span class="dc-chip warn">${escapeHtml(x)}</span>`).join('')
       : '<span class="dc-chip success">关键参数较完整</span>';
     const steps = (card.next_steps || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    const gradeLine = intent
+      ? `<div class="dc-chip ${intent.badge}" style="font-size:12px;">${escapeHtml(intent.label)}</div>
+         <div style="margin-top:4px;font-family:var(--font-mono);font-size:11px;">主动作：${escapeHtml(intent.primary_action || '')}</div>`
+      : '';
 
     host.innerHTML = `
       <div class="dc-block">
@@ -1125,12 +1191,13 @@
         </div>
       </div>
       <div class="dc-block">
-        <div class="dc-label">有效性判定 · 评分</div>
+        <div class="dc-label">意图分级 · 有效性</div>
         <div class="dc-value">
-          <div class="dc-chip ${v.badge || 'info'}" style="font-size: 12px;">${escapeHtml(v.label || '')}</div><br>
+          ${gradeLine}
+          <div class="dc-chip ${v.badge || 'info'}" style="margin-top:6px;">${escapeHtml(v.label || '')}</div><br>
           ${chips}
           <div style="margin-top: 6px; font-family: var(--font-mono); font-size: 11px;">
-            ${escapeHtml(card.score?.tier || '-')} · 成熟度 ${escapeHtml(String(card.score?.maturity ?? '-'))}/5
+            成熟度 ${escapeHtml(String(intent?.maturity ?? card.score?.maturity ?? '-'))}/5 · ${escapeHtml(String(intent?.legacy_tier || card.score?.tier || '-'))}
           </div>
           <div style="margin-top: 4px; color: var(--text-muted); font-size: 11px; line-height: 1.45;">${escapeHtml(v.summary || '')}</div>
         </div>

@@ -321,6 +321,69 @@ const InquiryResponder = {
     };
   },
 
+  /**
+   * 统一意图分级 G0–G5（销售主量表）
+   * G0 Pass 无效 | G1 拒绝 | G2 供应商 | G3 培育/补参 | G4 资料索取 | G5 热商机 RFQ
+   */
+  classifyIntent: function (lead, analysis) {
+    const a = analysis || this.analyzeLead(lead);
+    const v = this.judgeValidity(lead, a);
+    const jev = lead.jev_analysis || {};
+    const maturity = Number(jev.maturity_score || 0);
+    const tier = jev.tier || '';
+
+    let code = 'G3_NURTURE';
+    let label = 'G3 培育 · 补参跟进';
+    let short = '培育';
+    let badge = 'warn';
+
+    if (v.disposition === 'PASS') {
+      code = 'G0_PASS'; label = 'G0 无效 · Pass'; short = 'Pass'; badge = 'crit';
+    } else if (v.disposition === 'DECLINE') {
+      code = 'G1_DECLINE'; label = 'G1 跨界 · 拒绝'; short = '拒绝'; badge = 'crit';
+    } else if (v.disposition === 'SUPPLIER') {
+      code = 'G2_SUPPLIER'; label = 'G2 供应商 · 非买家'; short = '供应商'; badge = 'info';
+    } else if (v.disposition === 'NEED_INFO') {
+      code = 'G3_NURTURE'; label = 'G3 培育 · 补参跟进'; short = '培育'; badge = 'warn';
+    } else if (v.disposition === 'FOLLOW_UP') {
+      const textBlob = ((lead.raw_requirements || '') + ' ' + (lead.raw_text || '') + ' ' + JSON.stringify(lead.fields_filled || {})).toLowerCase();
+      const docAsk = /\b(catalog|catalogue|datasheet|data sheet|whitepaper|spec sheet|specification|brochure|manual|规格书|目录|数据手册|白皮书)\b/i.test(textBlob);
+      const hotBuy = /\b(rfq|quote|quotation|procurement|procur|purchase order|sample order|flight test|production|批量|采购|报价|询价)\b/i.test(textBlob);
+      const params = (a && a.detectedParams) || lead.detected_params || lead.technical_parameters || {};
+      const hasEngParams = !!(params.mtow || params.payload || params.thrust || params.voltage);
+
+      if (tier === 'TIER_1_READY_RFQ' || maturity >= 4.0 || (hotBuy && hasEngParams)) {
+        code = 'G5_RRFQ'; label = 'G5 热商机 · RFQ'; short = '热商机'; badge = 'success';
+      } else if (tier === 'TIER_2_TECH_SPEC' || maturity >= 3.0 || docAsk || (hotBuy && !hasEngParams) || v.missing.length <= 2) {
+        code = 'G4_SPEC'; label = 'G4 资料 · 规格推进'; short = '规格'; badge = 'info';
+      } else {
+        code = 'G3_NURTURE'; label = 'G3 培育 · 补参跟进'; short = '培育'; badge = 'warn';
+      }
+    }
+
+    const actionMap = {
+      G0_PASS: '归档 Pass，不外发',
+      G1_DECLINE: '礼貌拒绝函',
+      G2_SUPPLIER: '供应链收资料',
+      G3_NURTURE: '短问补参 2–3 题',
+      G4_SPEC: '发规格/目录 + 补参',
+      G5_RRFQ: '立即工程跟进 + 选型包'
+    };
+
+    return {
+      code,
+      label,
+      short,
+      badge,
+      disposition: v.disposition,
+      maturity: maturity || 0,
+      legacy_tier: tier,
+      primary_action: actionMap[code],
+      validity: v,
+      analysis: a
+    };
+  },
+
   _nextStepsForDisposition: function (disposition, missing, analysis) {
     if (disposition === 'PASS') {
       return [

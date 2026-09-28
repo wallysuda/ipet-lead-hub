@@ -59,12 +59,18 @@
       </div>
       <div class="table-bar-right">
         <input type="search" id="leadSearchInput" class="lead-toolbar-input" placeholder="搜索姓名 / 公司 / 邮箱 / 需求...">
-        <select id="leadTierFilter" class="lead-toolbar-input" title="按商机分级筛选">
+        <select id="leadTierFilter" class="lead-toolbar-input" title="按意图分级筛选">
           <option value="">全部分级</option>
-          <option value="TIER_1_READY_RFQ">Tier 1 · RFQ</option>
-          <option value="TIER_2_TECH_SPEC">Tier 2 · 技术资料</option>
-          <option value="TIER_3_EXPLORATORY">Tier 3 · 初级意向</option>
-          <option value="DISQUALIFIED">无效 / 误触</option>
+          <option value="G5_RRFQ">G5 热商机 · RFQ</option>
+          <option value="G4_SPEC">G4 资料 · 规格</option>
+          <option value="G3_NURTURE">G3 培育 · 补参</option>
+          <option value="G2_SUPPLIER">G2 供应商</option>
+          <option value="G1_DECLINE">G1 跨界拒绝</option>
+          <option value="G0_PASS">G0 无效 Pass</option>
+          <option value="TIER_1_READY_RFQ">（旧）Tier 1 RFQ</option>
+          <option value="TIER_2_TECH_SPEC">（旧）Tier 2 资料</option>
+          <option value="TIER_3_EXPLORATORY">（旧）Tier 3 初级</option>
+          <option value="DISQUALIFIED">（旧）无效</option>
         </select>
         <select id="leadSortSelect" class="lead-toolbar-input" title="排序">
           <option value="time_desc">按时间最新</option>
@@ -85,9 +91,9 @@
     <section class="funnel-bar" id="funnelBar">
       <div class="funnel-item"><span class="funnel-label">线索总量</span><strong id="funnelTotal">0</strong></div>
       <div class="funnel-arrow">→</div>
-      <div class="funnel-item"><span class="funnel-label">Tier1 RFQ</span><strong id="funnelT1">0</strong></div>
+      <div class="funnel-item"><span class="funnel-label">G5 热商机</span><strong id="funnelT1">0</strong></div>
       <div class="funnel-arrow">→</div>
-      <div class="funnel-item"><span class="funnel-label">Tier2 资料</span><strong id="funnelT2">0</strong></div>
+      <div class="funnel-item"><span class="funnel-label">G4 规格推进</span><strong id="funnelT2">0</strong></div>
       <div class="funnel-arrow">→</div>
       <div class="funnel-item"><span class="funnel-label">已生成邮件</span><strong id="funnelEmailed">0</strong></div>
       <div class="funnel-arrow">→</div>
@@ -117,8 +123,8 @@
               <th style="width: 190px;">企业与职位</th>
               <th style="width: 180px;">线索来源与获客场景</th>
               <th style="min-width: 290px;">客户填写的具体采购与技术需求 (Project Requirements)</th>
-              <th style="width: 180px;">商机意图分级 (Jev System One)</th>
-              <th style="width: 120px;">成熟度评分 (满分 5.0)</th>
+              <th style="width: 160px;">意图分级 (G0–G5)</th>
+              <th style="width: 100px;">成熟度</th>
               <th style="min-width: 230px;">系统建议跟进策略</th>
               <th style="width: 130px; text-align: center;">专业跟进操作</th>
             </tr>
@@ -136,13 +142,19 @@
   <div class="modal-overlay" id="modalEmail">
     <div class="modal-container email-modal-card">
       <div class="modal-header">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <h3>跟进邮件生成</h3>
-          <span class="badge badge-success" style="font-size: 11px; font-weight: normal; padding: 2px 8px;">
-            100% 纯英文隔离保证 (Zero Chinese)
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <h3 id="emailModalTitle">跟进动作台</h3>
+          <span class="badge badge-success" style="font-size: 11px; font-weight: normal; padding: 2px 8px;" id="emailModalGradeChip">G-</span>
+          <span class="badge badge-info" style="font-size: 11px; font-weight: normal; padding: 2px 8px;">
+            100% 纯英文隔离 (Zero Chinese)
           </span>
         </div>
         <button class="modal-close-btn" data-close="modalEmail">&times;</button>
+      </div>
+
+      <!-- Pass / 不外发提示条 -->
+      <div class="no-send-banner" id="noSendBanner" hidden>
+        判定为 <strong>Pass / 不可外发</strong>：仅内部归档，不要复制正文发给客户。可点「标记 Pass」归档。
       </div>
 
       <!-- 客户简要栏 -->
@@ -162,19 +174,19 @@
         <!-- 左栏：策略切角与主题行 -->
         <div class="email-col-left">
           <div class="form-group">
-            <label class="form-label">1. 针对询盘特异性策略切角 (点击切换正文与主题行)</label>
+            <label class="form-label">1. 动作策略 (按意图分级 G0–G5 分流 · 点击切换)</label>
             <div class="strategy-cards-container" id="emailStrategyCards"></div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">2. 可选高打开率英文主题行 (严格 35~50 字符)</label>
+            <label class="form-label">2. 英文主题行 (推荐 35–50 字符 · 外发前自动校验)</label>
             <div class="subject-list" id="emailSubjectList"></div>
           </div>
         </div>
 
         <!-- 右栏：纯英文跟进正文 -->
         <div class="email-col-right">
-          <label class="form-label">3. 纯英文工程跟进邮件正文 (Pure English · 可直接微调)</label>
+          <label class="form-label">3. 邮件正文 (Pure English · 可微调 · 已注入识别到的工程参数)</label>
           <textarea class="email-preview-box" id="emailBodyTextarea"></textarea>
         </div>
       </div>
