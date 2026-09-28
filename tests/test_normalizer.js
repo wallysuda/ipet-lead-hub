@@ -161,7 +161,8 @@ Sarah Connor,s.connor@skyfleet.de,SkyFleet Systems,Germany,16kg,12S,Concept,Look
   const analysisPet = InquiryResponder.analyzeLead(petLead);
   assert.strictEqual(analysisPet.persona, 'TYPE_D_DISQUALIFIED');
   const petBody = InquiryResponder.generateCustomEmailBody(analysisPet, 'disqualify_polite', 'Inquiry regarding IPET');
-  assert.ok(petBody.includes('do not produce consumer gadgets, pet products'));
+  assert.ok(/industrial UAV powertrains only|industrial-grade UAV propulsion/i.test(petBody));
+  assert.ok(/cannot support|outside that/i.test(petBody));
   assert.ok(!petBody.includes('MTOW'));
   console.log('  ✅ Disqualified persona boundary clarification verified!\n');
 

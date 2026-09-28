@@ -1082,6 +1082,57 @@ const InquiryResponder = {
    * length: 'short' (默认，4-7 行) | 'standard' | 'detailed'
    * 原则：针对性第一；格式规范；短优先，长不堆砌
    */
+  composeSupplierBody: function (analysis, strategyId, length) {
+    const mode = length || 'short';
+    const name = analysis.callName || 'there';
+    const comp = String(analysis.cleanEnglishCompany || 'your team').replace(/[.。]+$/, '');
+    const sign = '\n\nBest regards,\n\nSupply Chain Desk\nIPET SYSTEM | Industrial UAV Powertrains\nhttps://ipetsystem.com';
+
+    if (strategyId === 'supplier_decline') {
+      if (mode === 'short') {
+        return `Hi ${name},\n\nThank you for introducing ${comp}.\n\nOur current supplier panel for this process is covered, so we will not open a new sourcing round now. We have archived your details.` + sign;
+      }
+      if (mode === 'standard') {
+        return `Hi ${name},\n\nThank you for introducing ${comp} and your manufacturing capabilities.\n\nAfter review, our present supplier panel for microelectronics packaging / machining is sufficient for current programs. We will not start a new qualification round at this time.\n\nWe have archived your company profile.` + sign;
+      }
+      return `Hi ${name},\n\nThank you for introducing ${comp} and the details of your manufacturing capabilities.\n\nWe completed an internal fit review against active programs. Our present supplier panel for microelectronics packaging, wire bonding, and precision machining is sufficient for the current production window, so we will not open a new qualification round now.\n\nActions on our side:\n- Archive ${comp} in the qualified alternate list\n- No documents required from you at this stage\n- Procurement will contact you if capacity or process gaps appear\n\nWe appreciate the introduction and will keep your profile for future sourcing events.` + sign;
+    }
+
+    if (strategyId === 'supplier_nda_review') {
+      if (mode === 'short') {
+        return `Hi ${name},\n\nThanks for the supplier introduction from ${comp}.\n\nBefore we share packaging outlines or assembly drawings, we need a mutual NDA (MNDA). We can counter-sign within 24 hours — send your template or we will send ours.` + sign;
+      }
+      if (mode === 'standard') {
+        return `Hi ${name},\n\nThank you for the supplier introduction from ${comp}.\n\nOur ESC inverter layouts and packaging outlines are proprietary, so technical documents are released under a mutual NDA only.\n\nPlease send your standard MNDA (we counter-sign within 24 hours), or we can forward ours. After NDA, kindly share:\n- Company line card\n- Process capability sheet\n- Typical lead time and MOQ` + sign;
+      }
+      return `Hi ${name},\n\nThank you for the supplier introduction from ${comp}.\n\nOur ESC inverter layouts, gate-driver packaging, and thermal substrates are proprietary hardware. Before any drawing exchange, both sides should execute a mutual NDA (MNDA).\n\nProposed process:\n1. You send your MNDA template, or we forward ours\n2. We counter-sign within 24 hours\n3. Then share line card + process capability sheet\n4. Optional NDA-covered drawing review for a pilot package\n\nTypical capability data that helps qualification: wire diameter range, SMT pitch, cleanroom class, export experience, lead time and MOQ.` + sign;
+    }
+
+    // supplier_intake
+    if (mode === 'short') {
+      return `Hi ${name},\n\nThank you for reaching out to IPET SYSTEM from ${comp}.\n\nPlease send your company line card and key process capabilities (e.g. wire bonding, SMT, machining). Our sourcing team will review fit for upcoming programs.` + sign;
+    }
+    if (mode === 'standard') {
+      return `Hi ${name},\n\nThank you for introducing ${comp} as a potential manufacturing partner.\n\nTo complete supplier intake, please email:\n1. Company line card\n2. Process capability sheet\n3. Typical lead time / MOQ\n4. Willingness to work under MNDA\n\nIf a package matches an active program, our hardware procurement team will contact you directly.` + sign;
+    }
+    return `Hi ${name},\n\nThank you for introducing ${comp} as a potential manufacturing partner for IPET SYSTEM.\n\nTo complete supplier intake, please send:\n1. Company line card (PDF)\n2. Process capability sheet — wire bonding, SMT, CNC, or assembly\n3. Typical lead time, MOQ, and export experience\n4. Willingness to execute a mutual NDA before drawings are shared\n\nWhat happens next:\n- Sourcing scores fit against active UAV powertrain programs\n- Shortlisted suppliers receive a capability questionnaire\n- Matched packages move to sample RFQ\n\nWe keep supplier records on file for future programs even if there is no immediate fit.` + sign;
+  },
+
+  composeDeclineBody: function (analysis, strategyId, length) {
+    const mode = length || 'short';
+    const name = analysis.callName || 'there';
+    const comp = String(analysis.cleanEnglishCompany || 'your team').replace(/[.。]+$/, '');
+    const sign = '\n\nBest regards,\n\nCustomer Inquiries Desk\nIPET SYSTEM | Industrial UAV Powertrains\nhttps://ipetsystem.com';
+
+    if (strategyId === 'disqualify_brief' || mode === 'short') {
+      return `Hi ${name},\n\nThank you for contacting IPET SYSTEM.\n\nOur scope is industrial UAV powertrains only (motor + FOC ESC + propeller). We cannot support this request, so we will archive the inquiry.` + sign;
+    }
+    if (mode === 'standard') {
+      return `Hi ${name},\n\nThank you for contacting IPET SYSTEM about ${comp || 'your project'}.\n\nWe build industrial UAV propulsion systems only. This request is outside that scope, so we cannot take it forward. We will archive the inquiry.` + sign;
+    }
+    return `Hi ${name},\n\nThank you for contacting IPET SYSTEM about ${comp || 'your project'}.\n\nIPET SYSTEM develops industrial-grade UAV propulsion systems only — high-torque motors, high-voltage FOC ESCs, and matched carbon propellers for heavy-lift commercial and defense aircraft.\n\nBecause your request sits outside that engineering scope, we are not able to take it forward. We will archive the inquiry to keep your mailbox clear.\n\nIf you later start an industrial drone powertrain program, send MTOW and voltage targets and our application team will assist.` + sign;
+  },
+
   composeFollowUpBody: function (analysis, strategyId, subjectText, length) {
     const mode = length || 'short';
     const name = analysis.callName || 'there';
@@ -1205,11 +1256,13 @@ https://ipetsystem.com`;
 
 Thanks for your inquiry to IPET SYSTEM${focusLine ? ` regarding ${focusLine}` : ''}.
 
+Priority for this thread: ${angle}.
+
 What we can put on the table for ${comp}:
 - Factory-matched ${productLine}
+- ${String(angle).charAt(0).toUpperCase()}${String(angle).slice(1)}
 - Dyno curves for hover/current draw at your voltage class
 - Native 3D STEP mounts and wiring notes
-- IP66 drive options and DroneCAN telemetry notes
 ${p.stage ? `- Delivery timing aligned to ${String(p.stage).replace(/[一-龥]+/g, '').trim() || p.stage}` : '- Sample lead time in 2–3 weeks after spec freeze'}
 
 To return a precise configuration, I need three inputs:
@@ -1243,8 +1296,14 @@ https://ipetsystem.com`;
       const sid = strategyId === 'need_info_questions' || strategyId === 'need_info_catalog'
         ? 'need_info'
         : strategyId;
-      // 展会/供应商打样等也收成短/标/详，避免旧长文
       return this.composeFollowUpBody(analysis, sid, subjectText, lengthMode);
+    }
+
+    if (strategyId === 'supplier_intake' || strategyId === 'supplier_nda_review' || strategyId === 'supplier_decline') {
+      return this.composeSupplierBody(analysis, strategyId, lengthMode);
+    }
+    if (strategyId === 'decline_polite' || strategyId === 'disqualify_brief' || strategyId === 'disqualify_polite') {
+      return this.composeDeclineBody(analysis, strategyId, lengthMode);
     }
 
     const name = analysis.callName || "there";
