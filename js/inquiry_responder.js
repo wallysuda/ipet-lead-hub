@@ -91,7 +91,7 @@ const InquiryResponder = {
     }
 
     // 4. 商业无人机 OEM / 整机研发 / 工业采购
-    if (fullText.includes("oem") || fullText.includes("heavy lift") || fullText.includes("logistics") || fullText.includes("inspection") || fullText.includes("vtol") || fullText.includes("agri") || fullText.includes("sprayer") || fullText.includes("cargo") || fullText.includes("propulsion") ||
+    if (fullText.includes("oem") || fullText.includes("heavy lift") || fullText.includes("logistics") || fullText.includes("inspection") || fullText.includes("vtol") || fullText.includes("agri") || fullText.includes("sprayer") || fullText.includes("cargo") || fullText.includes("propulsion") || fullText.includes("농업") || fullText.includes("drone") || fullText.includes("uav") ||
         fullText.includes("gremsy") || fullText.includes("gimbal") || fullText.includes("motor") || fullText.includes("esc") || fullText.includes("propeller") || fullText.includes("prop") || fullText.includes("concept evaluation") || fullText.includes("payload") ||
         fullText.includes("procuring") || fullText.includes("procurement") || fullText.includes("flight test") || fullText.includes("multirotor") || fullText.includes("drone") || fullText.includes("uav") || fullText.includes("sourcing") || fullText.includes("wholesale") || fullText.includes("dronex") || fullText.includes("trade show")) {
       return "TYPE_B_COMMERCIAL_OEM";

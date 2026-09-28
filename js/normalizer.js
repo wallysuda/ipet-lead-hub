@@ -10,8 +10,9 @@
       "name", "full name", "fullname", "first name", "firstname", "last name", "lastname", "contact name", "contact",
       "customer name", "user name", "representative", "visitor", "your name", "your-name", "your_name",
       "applicant", "sender", "from name", "from", "lead name", "client name",
+      "what is your name", "what's your name", "enter your name",
       "姓名", "客户姓名", "客户", "联系人", "您的称呼", "全名", "称谓", "访客", "留言人", "业务代表姓名",
-      "联系人姓名", "客户名称", "怎么称呼", "称呼"
+      "联系人姓名", "客户名称", "怎么称呼", "称呼", "성함", "이름", "성명"
     ],
     email: [
       "email", "e-mail", "e_mail", "mail", "work email", "business email", "corporate email", "contact email",
@@ -21,7 +22,9 @@
     company: [
       "company", "company name", "company_name", "companyname", "organization", "organisation", "agency", "institution", "firm", "business",
       "enterprise", "workplace", "employer", "org", "org name", "org-name", "business name", "your company",
-      "公司", "企业名称", "单位名称", "所属机构", "机构", "单位", "公司名", "企业", "工作单位", "贵司", "公司全称"
+      "what is your company", "company / organization",
+      "公司", "企业名称", "单位名称", "所属机构", "机构", "单位", "公司名", "企业", "工作单位", "贵司", "公司全称",
+      "회사", "회사명", "기업"
     ],
     job_title: [
       "job title", "jobtitle", "job_title", "title", "position", "role", "designation", "profession", "occupation",
@@ -30,8 +33,8 @@
     ],
     phone: [
       "phone", "phone number", "phone_number", "phonenumber", "mobile", "mobile number", "tel", "telephone",
-      "whatsapp", "wechat", "cell", "contact number", "contact phone", "your phone",
-      "电话", "联系电话", "手机", "手机号码", "电话号码", "手机电话", "联系方式", "微信"
+      "whatsapp", "wechat", "cell", "contact number", "contact phone", "your phone", "whatsapp number",
+      "电话", "联系电话", "手机", "手机号码", "电话号码", "手机电话", "联系方式", "微信", "전화", "연락처"
     ],
     country: [
       "country", "region", "nation", "location", "area", "city", "state", "address", "country region",
@@ -41,13 +44,17 @@
       "requirements", "requirement", "inquiry", "enquiry", "message", "comments", "comment", "project description",
       "notes", "note", "request", "needs", "details", "project background", "description", "details",
       "project requirements", "your message", "your message here", "tell us more", "additional info", "remarks",
+      "tell us about your propulsion requirements", "propulsion requirements", "primary application",
+      "what is the primary application of your uav", "what is your project about",
       "需求描述", "诉求", "留言", "咨询内容", "合作诉求", "留言内容", "备注", "需求", "项目背景", "采购诉求",
-      "业务类型", "工艺能力介绍", "详细需求", "具体需求", "补充说明", "问题描述", "咨询详情", "内容", "正文"
+      "业务类型", "工艺能力介绍", "详细需求", "具体需求", "补充说明", "问题描述", "咨询详情", "内容", "正文",
+      "요구사항", "문의", "상세내용"
     ],
     mtow: [
       "mtow", "takeoff weight", "max takeoff weight", "maximum takeoff weight", "gross weight", "max weight",
-      "all up weight", "auw", "takeoff mass", "最大起飞重量", "起飞重量", "整机起飞重量", "整机重量", "重量需求",
-      "起飞全重", "最大重量"
+      "all up weight", "auw", "takeoff mass", "what is the mtow of your uav",
+      "最大起飞重量", "起飞重量", "整机起飞重量", "整机重量", "重量需求", "起飞全重", "最大重量",
+      "최대이륙중량", "이륙중량"
     ],
     voltage: [
       "voltage", "bus voltage", "battery voltage", "operating voltage", "power voltage", "dc voltage", "system voltage",
@@ -116,6 +123,11 @@
     detectEntityField: function (rawKey) {
       const cleaned = cleanKey(rawKey);
       if (!cleaned) return null;
+      // 原始全文 / 载荷正文不是实体字段
+      if (/^(原始自由文本|原始文本|全文|原文|rawtext|raw|content|fulltext|payload)$/i.test(String(rawKey||'').trim())) {
+        return null;
+      }
+      if (/原始自由文本|原始文本/.test(String(rawKey||''))) return null;
 
       // 第一遍：精确全字匹配 (最高优先级)
       for (const [entityKey, aliases] of Object.entries(SEMANTIC_DICTIONARY)) {
@@ -128,16 +140,26 @@
       }
 
       // 第二遍：高优先级特异性关键词定向检测 (避免 "contact-email" 被 "contact" 抢夺)
+      // 注意：用原始键做词边界判断，防止 "Tell us..." 被 "tel" 误判为电话
+      const rawLower = String(rawKey || '').toLowerCase();
+      const wordHit = (w) => new RegExp(`(^|[^a-z])${w}([^a-z]|$)`, 'i').test(rawLower);
+
       if (cleaned.includes("email") || cleaned.includes("mail") || cleaned.includes("邮箱") || cleaned.includes("信箱")) {
         return "email";
       }
-      if (cleaned.includes("phone") || cleaned.includes("mobile") || cleaned.includes("tel") || cleaned.includes("whatsapp") || cleaned.includes("电话") || cleaned.includes("手机")) {
+      if (
+        wordHit('phone') || wordHit('mobile') || wordHit('whatsapp') || wordHit('cell') ||
+        wordHit('telephone') || wordHit('tel') || wordHit('contactnumber') ||
+        cleaned.includes("whatsapp") || cleaned.includes("phonenumber") ||
+        cleaned.includes("mobilephone") || cleaned.includes("mobilenumber") ||
+        cleaned.includes("电话") || cleaned.includes("手机")
+      ) {
         return "phone";
       }
       if (cleaned.includes("company") || cleaned.includes("org") || cleaned.includes("agency") || cleaned.includes("enterprise") || cleaned.includes("公司") || cleaned.includes("企业") || cleaned.includes("单位")) {
         return "company";
       }
-      if (cleaned.includes("mtow") || cleaned.includes("takeoffweight") || cleaned.includes("weight") || cleaned.includes("起飞重量")) {
+      if (cleaned.includes("mtow") || cleaned.includes("takeoffweight") || cleaned.includes("takeoffmass") || cleaned.includes("grossweight") || cleaned.includes("起飞重量") || cleaned.includes("最大起飞") || cleaned.includes("최대이륙") || wordHit('weight')) {
         return "mtow";
       }
       if (cleaned.includes("voltage") || cleaned.includes("busvoltage") || cleaned.includes("母线电压") || cleaned.includes("工作电压") || cleaned.includes("电池电压")) {
@@ -152,7 +174,7 @@
       if (cleaned.includes("propeller") || cleaned.includes("blade") || cleaned.includes("螺旋桨") || cleaned.includes("桨叶")) {
         return "propeller";
       }
-      if (cleaned.includes("airframe") || cleaned.includes("uavtype") || cleaned.includes("dronetype") || cleaned.includes("coaxial") || cleaned.includes("机型") || cleaned.includes("构型") || cleaned.includes("飞行器")) {
+      if (cleaned.includes("airframe") || cleaned.includes("uavtype") || cleaned.includes("dronetype") || cleaned.includes("coaxial") || cleaned.includes("机型") || cleaned.includes("构型") || cleaned.includes("飞行器") || cleaned.includes("기체")) {
         return "uav_type";
       }
       if (cleaned.includes("job") || cleaned.includes("title") || cleaned.includes("position") || cleaned.includes("职位") || cleaned.includes("职务") || cleaned.includes("头衔")) {
@@ -161,21 +183,32 @@
       if (cleaned.includes("country") || cleaned.includes("region") || cleaned.includes("nation") || cleaned.includes("国家") || cleaned.includes("地区")) {
         return "country";
       }
-      if (cleaned.includes("stage") || cleaned.includes("timeline") || cleaned.includes("阶段") || cleaned.includes("进度")) {
+      if (cleaned.includes("stage") || cleaned.includes("timeline") || cleaned.includes("阶段") || cleaned.includes("进度") || cleaned.includes("prototype") && cleaned.includes("stage")) {
         return "stage";
       }
-      if (cleaned.includes("require") || cleaned.includes("need") || cleaned.includes("inquiry") || cleaned.includes("message") || cleaned.includes("comment") || cleaned.includes("note") || cleaned.includes("需求") || cleaned.includes("留言") || cleaned.includes("诉求") || cleaned.includes("备注")) {
+      // 应用场景 / 动力需求 / 项目说明 → requirements
+      if (
+        cleaned.includes("application") || cleaned.includes("usecase") || cleaned.includes("industry") ||
+        cleaned.includes("propulsion") || cleaned.includes("require") || cleaned.includes("need") ||
+        cleaned.includes("inquiry") || cleaned.includes("message") || cleaned.includes("comment") ||
+        cleaned.includes("detail") || cleaned.includes("note") || cleaned.includes("about") ||
+        cleaned.includes("需求") || cleaned.includes("留言") || cleaned.includes("诉求") || cleaned.includes("备注") ||
+        cleaned.includes("用途") || cleaned.includes("应用场景")
+      ) {
         return "requirements";
       }
       if (cleaned.includes("name") || cleaned.includes("姓名") || cleaned.includes("联系人") || cleaned.includes("称呼") || cleaned === "contact") {
         return "name";
       }
 
-      // 第三遍：语义词典子串匹配
+      // 第三遍：语义词典子串匹配（要求别名足够长，避免短词误伤）
       for (const [entityKey, aliases] of Object.entries(SEMANTIC_DICTIONARY)) {
         for (const alias of aliases) {
           const cleanedAlias = cleanKey(alias);
-          if (cleaned.includes(cleanedAlias) || cleanedAlias.includes(cleaned)) {
+          if (!cleanedAlias || cleanedAlias.length < 3) continue;
+          if (cleaned.includes(cleanedAlias)) return entityKey;
+          // 仅当原键很短时才允许反向包含，防止「原始自由文本」被 name 命中
+          if (cleaned.length >= 3 && cleaned.length <= 12 && cleanedAlias.includes(cleaned)) {
             return entityKey;
           }
         }
@@ -187,6 +220,18 @@
     extractTechnicalParameters: function (fullText) {
       const text = String(fullText || "");
       const params = {};
+
+      // 多语种：韩文/中文应用场景与机型
+      if (/농업용|농업|agricultur|sprayer|spray drone|植保|农业/i.test(text)) {
+        params.uav_type = params.uav_type || '农业无人机 (Agricultural UAV)';
+      }
+      if (/물류|cargo|delivery|화물|물류용/i.test(text)) {
+        params.uav_type = params.uav_type || '物流货运无人机 (Cargo UAV)';
+      }
+      if (/최대이륙중량|이륙중량/.test(text) && !params.mtow) {
+        const km = text.match(/(\d+(?:\.\d+)?\s*kg)/i);
+        if (km) params.mtow = km[1].replace(/\s+/g, '');
+      }
 
       // MTOW 提取 (如 65kg, 30 kg MTOW, 45-60kg)
       const mtowMatch = text.match(/(\d+(?:\.\d+)?\s*(?:-|~|to)?\s*\d*(?:\.\d+)?\s*kg)(?:\s*(?:mtow|takeoff|起飞重量))?/i);
@@ -426,7 +471,7 @@
       if (ch) raw["渠道"] = ch;
 
       // 5.1 先扫 key:value / key：value / key = value 行（表单导出、后台留言、邮件头）
-      const kvRe = /^[\s>*-]*([^\n:：=]{1,40})[:：=]\s*(.+)$/gm;
+      const kvRe = /^[\s>*-]*([^\n:：=]{1,80})[:：=]\s*(.+)$/gm;
       let kvHit = 0;
       let m;
       const reqParts = [];
@@ -495,7 +540,7 @@
         if (fromHeader && fromHeader[1].trim()) {
           name = fromHeader[1].trim();
         } else {
-          const explicitName = text.match(/(?:full\s*name|contact\s*name|first\s*name|name|姓名|联系人|联系姓名|怎么称呼)[:：]\s*([A-Za-z\s.'-]{2,40}|[一-龥]{2,10})/i);
+          const explicitName = text.match(/(?:full\s*name|contact\s*name|first\s*name|name|姓名|联系人|联系姓名|怎么称呼)[:：]\s*([A-Za-z\s.'-]{2,40}|[一-龥가-힯]{2,20})/i);
           if (explicitName) {
             name = explicitName[1].trim();
           } else {
@@ -511,19 +556,22 @@
       // 5.4 若仍无需求正文，用去掉已识别键值后的剩余文本
       if (!raw["需求描述"]) {
         const leftover = text
-          .replace(/^[^\n:：=]{1,40}[:：=].*$/gm, '')
+          .replace(/^[^\n:：=]{1,80}[:：=].*$/gm, '')
           .replace(/[\w.+-]+@[\w.-]+\.\w+/g, '')
           .trim();
         if (leftover.length > 15) raw["需求描述"] = leftover.slice(0, 4000);
       }
 
-      // 姓名统一清洗：去邮箱、尖括号、多余空白
+      // 姓名统一清洗：去邮箱、尖括号、多余空白；拒绝整段正文误入
       if (raw["客户姓名"]) {
-        raw["客户姓名"] = String(raw["客户姓名"])
+        let n = String(raw["客户姓名"])
           .replace(/<[^>]+>/g, '')
           .replace(/[\w.+-]+@[\w.-]+\.\w+/g, '')
+          .split(/\r?\n/)[0]
           .replace(/\s{2,}/g, ' ')
           .trim();
+        if (n.length > 40 || n.includes(':') || n.includes('：')) n = '';
+        raw["客户姓名"] = n;
       }
 
       return this.normalize(raw, channelHint || ch || "多渠道粘贴录入");
@@ -554,6 +602,7 @@
     detectChannel: function (text, hint) {
       const t = String(text || '').toLowerCase();
       if (!hint) {
+        if (/facebook|fb lead|meta lead/.test(t)) return 'Facebook Lead Form';
         if (/linkedin|lead gen|campaign/.test(t)) return 'LinkedIn Lead Gen Form';
         if (/whatsapp|telegram|skype/.test(t)) return '即时通讯询盘';
         if (/wordpress|contact form|cf7|wpforms|typeform/.test(t)) return '官网表单';
