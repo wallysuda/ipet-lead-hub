@@ -269,7 +269,15 @@
 
         <!-- 右栏：纯英文跟进正文 -->
         <div class="email-col-right">
-          <label class="form-label">3. 邮件正文 (Pure English · 可微调 · 已注入识别到的工程参数)</label>
+          <div class="email-body-toolbar">
+            <label class="form-label" style="margin:0;">3. 邮件正文 (Pure English)</label>
+            <div class="email-length-switch" id="emailLengthSwitch" title="短文更易被阅读；详细版用于深度工程询盘">
+              <button type="button" class="len-btn active" data-len="short">短信（推荐）</button>
+              <button type="button" class="len-btn" data-len="standard">标准</button>
+              <button type="button" class="len-btn" data-len="detailed">详细工程</button>
+            </div>
+            <span class="email-len-meta" id="emailLenMeta"></span>
+          </div>
           <textarea class="email-preview-box" id="emailBodyTextarea"></textarea>
         </div>
       </div>

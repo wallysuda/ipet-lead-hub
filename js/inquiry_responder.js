@@ -1077,7 +1077,164 @@ const InquiryResponder = {
   },
 
   // 4. 生成高度独特性、完全针对询盘定制的英文正文 (100% 纯英文，绝无任何中文字符)
-  generateCustomEmailBody: function (analysis, strategyId, subjectText) {
+  /**
+   * 篇幅可控的跟进正文生成
+   * length: 'short' (默认，4-7 行) | 'standard' | 'detailed'
+   * 原则：针对性第一；格式规范；短优先，长不堆砌
+   */
+  composeFollowUpBody: function (analysis, strategyId, subjectText, length) {
+    const mode = length || 'short';
+    const name = analysis.callName || 'there';
+    const comp = analysis.cleanEnglishCompany || 'your team';
+    const p = analysis.detectedParams || {};
+    const job = (analysis.job_title || '').trim();
+    const industry = (analysis.industryProfile || '').trim();
+
+    // 询盘侧重点（针对性）
+    const focus = [];
+    const cleanMtow = String(p.mtow || '').replace(/\s*mtow\s*/gi, '').trim();
+    const cleanPayload = String(p.payload || '').replace(/\s*payload\s*/gi, '').trim();
+    if (cleanMtow) focus.push(`MTOW ${cleanMtow}`);
+    else if (cleanPayload) focus.push(`payload ${cleanPayload}`);
+    if (p.voltage) focus.push(`bus ${p.voltage}`);
+    if (p.uav_type) focus.push(String(p.uav_type).replace(/[一-龥]+/g, '').trim() || 'airframe');
+    if (p.stage) focus.push(String(p.stage).replace(/[一-龥]+/g, '').trim());
+    if (p.quantity) focus.push(`qty ${p.quantity}`);
+    const focusLine = focus.length ? focus.join(' · ') : '';
+
+    const missing = [];
+    if (!p.mtow && !p.payload && !p.thrust) missing.push('target MTOW or payload');
+    if (!p.voltage) missing.push('battery / bus voltage');
+    if (!p.uav_type && !p.propeller) missing.push('airframe layout / prop size');
+    if (!p.stage) missing.push('project stage');
+
+    const sign = `
+Best regards,
+
+Application Engineering Team
+IPET SYSTEM | Industrial UAV Powertrains
+https://ipetsystem.com`;
+
+    // 受众一句：岗位/场景
+    const roleLine = job
+      ? `For ${comp}'s ${job} team`
+      : `For ${comp}`;
+
+    const productLine = analysis.isHeavyLift || analysis.productCode === 'I8'
+      ? 'I8 heavy-lift powertrain kits (motor + FOC ESC + carbon prop)'
+      : analysis.isGimbalPayload || analysis.productCode === 'I7'
+        ? 'I7 gimbal-payload power systems with low-EMI FOC drives'
+        : 'factory-matched industrial powertrains (motor + FOC ESC + carbon prop)';
+
+    const subjectHint = subjectText ? String(subjectText).replace(/\s+/g, ' ').trim() : '';
+
+    if (mode === 'short') {
+      const isNeedInfo = strategyId === 'need_info' || strategyId === 'need_info_questions' || strategyId === 'need_info_catalog';
+      const bits = [];
+      bits.push(`Hi ${name},`);
+      bits.push('');
+      bits.push(focusLine
+        ? `Thanks for your note on ${focusLine} — happy to help size a powertrain for ${comp}.`
+        : `Thanks for reaching out to IPET SYSTEM regarding UAV propulsion for ${comp}.`);
+      bits.push('');
+      if (isNeedInfo) {
+        bits.push('To point you to the right motor / ESC / prop set, could you please confirm:');
+        (missing.length ? missing.slice(0, 3) : ['target MTOW or payload', 'battery / bus voltage', 'project stage'])
+          .forEach((m, i) => bits.push(`${i + 1}. ${m.charAt(0).toUpperCase()}${m.slice(1)}?`));
+        bits.push('');
+        bits.push('Once I have these, I will send a short sizing note the same day.');
+      } else {
+        bits.push(`We can share a concise sizing note and the matching ${productLine} for your program.`);
+        if (missing.length) {
+          bits.push(`To lock the right set, please confirm: ${missing.slice(0, 2).join(' and ')}.`);
+        } else if (focusLine) {
+          bits.push('If the targets above are correct, I will send the recommended motor/ESC/prop combo and key dyno figures.');
+        }
+        bits.push('');
+        bits.push('If you prefer a short call, send two time windows that work on your side.');
+      }
+      bits.push(sign);
+      return bits.join('\n').trim();
+    }
+
+    if (mode === 'standard') {
+      const bits = [];
+      bits.push(`Hi ${name},`);
+      bits.push('');
+      bits.push(focusLine
+        ? `Thanks for contacting IPET SYSTEM. I reviewed your note on ${focusLine}.`
+        : `Thanks for contacting IPET SYSTEM about your UAV powertrain needs.`);
+      bits.push('');
+      bits.push(`${roleLine}, our ${productLine} are dyno-matched for stable hover efficiency and clear throttle response.`);
+      if (industry && industry.length < 80) {
+        bits.push(`Given your focus on ${industry.replace(/[一-龥]+/g, '').trim() || 'industrial UAV platforms'}, the closest current fit is the same I7/I8 family we ship to OEM programs.`);
+      }
+      if (focusLine) {
+        bits.push(`Working assumption: ${focusLine}.`);
+      }
+      if (missing.length) {
+        bits.push(`Please confirm ${missing.slice(0, 3).join(', ')} so I can send a tight selection sheet.`);
+      } else {
+        bits.push('I can send the selection sheet and 3D STEP models next business day.');
+      }
+      bits.push('');
+      bits.push('Happy to proceed over email — or we can do a 15-minute sizing call if that is faster.');
+      bits.push(sign);
+      return bits.join('\n').trim();
+    }
+
+    // detailed — 仍控制在可读篇幅，用列表而不是长段
+    const q1 = missing[0] || 'firm MTOW / payload target';
+    const q2 = missing[1] || 'voltage architecture';
+    const q3 = missing[2] || 'program timeline';
+    return `Hi ${name},
+
+Thanks for your inquiry to IPET SYSTEM${focusLine ? ` regarding ${focusLine}` : ''}.
+
+What we can put on the table for ${comp}:
+- Factory-matched ${productLine}
+- Dyno curves for hover/current draw at your voltage class
+- Native 3D STEP mounts and wiring notes
+${p.stage ? `- Delivery timing aligned to ${String(p.stage).replace(/[一-龥]+/g, '').trim() || p.stage}` : '- Sample lead time in 2–3 weeks after spec freeze'}
+
+To return a precise configuration, I need three inputs:
+1. ${q1}
+2. ${q2}
+3. ${q3}
+
+Once you send those, I will reply with:
+- Recommended motor + ESC + prop set
+- Expected hover thrust margin
+- Quote for sample quantities
+
+If helpful, I can also hold a short technical call with your flight/propulsion lead.
+
+Best regards,
+
+Application Engineering Team
+IPET SYSTEM | Industrial UAV Powertrains
+https://ipetsystem.com`;
+  },
+
+  generateCustomEmailBody: function (analysis, strategyId, subjectText, options) {
+    const lengthMode = (options && options.length) || analysis._email_length || 'short';
+
+    // 主跟进类策略走篇幅可控的精准短文
+    const composedStrategies = new Set([
+      'heavy_lift_sizing', 'coaxial_redundancy', 'commercial_sample',
+      'sizing_dyno', 'concept_eval', 'payload_vibration',
+      'procurement_intake', 'flight_testing', 'oem_supply',
+      'project_timeline', 'avionics_interface',
+      'need_info_questions', 'need_info_catalog'
+    ]);
+    if (composedStrategies.has(strategyId)) {
+      // need_info 保持补参语气，但仍短
+      if (strategyId === 'need_info_questions' || strategyId === 'need_info_catalog') {
+        return this.composeFollowUpBody(analysis, 'need_info', subjectText, 'short');
+      }
+      return this.composeFollowUpBody(analysis, strategyId, subjectText, lengthMode);
+    }
+
     const name = analysis.callName || "there";
     const comp = analysis.cleanEnglishCompany || "your team";
     const compShort = analysis.compShort || "your team";

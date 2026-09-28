@@ -12,6 +12,7 @@
   let currentEmailAnalysis = null;
   let selectedStrategyId = null;
   let selectedSubjectText = '';
+  let selectedEmailLength = 'short';
   let selectedLeadIds = new Set();
 
   // DOM 元素引用
@@ -1609,13 +1610,46 @@
       currentEmailLead.subject_used = subjectText;
       persistLeadMutation(currentEmailLead);
     }
-    const body = window.InquiryResponder.generateCustomEmailBody(currentEmailAnalysis, selectedStrategyId, subjectText);
+    const body = window.InquiryResponder.generateCustomEmailBody(
+      currentEmailAnalysis,
+      selectedStrategyId,
+      subjectText,
+      { length: selectedEmailLength }
+    );
     if (el.emailBodyTextarea) {
       el.emailBodyTextarea.value = body;
     }
+    updateEmailLenMeta(body);
+  }
+
+  function updateEmailLenMeta(body) {
+    const meta = document.getElementById('emailLenMeta');
+    if (!meta) return;
+    const text = String(body || '');
+    const words = (text.match(/[A-Za-z]+/g) || []).length;
+    const lines = text.split(/\n/).filter(Boolean).length;
+    const hint = selectedEmailLength === 'short' ? '短文 · 易读优先'
+      : selectedEmailLength === 'standard' ? '标准 · 信息完整'
+      : '详细 · 工程清单';
+    meta.textContent = `${hint} · 约 ${words} 词 / ${lines} 行`;
   }
 
   function bindEmailEvents() {
+    document.querySelectorAll('#emailLengthSwitch .len-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedEmailLength = btn.getAttribute('data-len') || 'short';
+        document.querySelectorAll('#emailLengthSwitch .len-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (selectedSubjectText) {
+          updateEmailBody(selectedSubjectText);
+        } else if (currentEmailAnalysis && window.InquiryResponder) {
+          const subjects = window.InquiryResponder.generateSubjectLinesForStrategy(currentEmailAnalysis, selectedStrategyId);
+          if (subjects[0]) updateEmailBody(subjects[0].text);
+        }
+        showToast(`邮件篇幅已切换：${btn.textContent}`, 'info');
+      });
+    });
+
     function assertOutboundReady() {
       // Pass 归档说明仅内部使用，不做外发校验
       if (selectedStrategyId === 'pass_archive') {

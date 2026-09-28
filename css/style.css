@@ -1536,3 +1536,44 @@ body.modal-open {
 .paste-preview-item .val.ok {
   color: #047857;
 }
+
+/* --- Email length switch --- */
+.email-body-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 6px;
+}
+
+.email-length-switch {
+  display: inline-flex;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.len-btn {
+  border: none;
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.len-btn:last-child {
+  border-right: none;
+}
+
+.len-btn.active {
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
+}
+
+.email-len-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
