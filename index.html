@@ -154,6 +154,9 @@
         <div id="emailModalPersonaBadge">--</div>
       </div>
 
+      <!-- 销售决策卡 -->
+      <div class="decision-card" id="decisionCard"></div>
+
       <!-- 左右双栏工作区 -->
       <div class="email-modal-grid">
         <!-- 左栏：策略切角与主题行 -->
@@ -177,6 +180,7 @@
       </div>
 
       <div class="modal-footer">
+        <button class="btn btn-outline btn-danger-text" id="btnMarkPass" title="判定为无效询盘，归档且不外发">标记 Pass</button>
         <button class="btn btn-secondary" id="btnOpenMailto">客户端发送</button>
         <button class="btn btn-primary" id="btnCopyEmail">复制完整主题与正文</button>
         <button class="btn btn-outline" data-close="modalEmail">关闭</button>

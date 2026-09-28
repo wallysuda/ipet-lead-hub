@@ -46,6 +46,7 @@
     emailBodyTextarea: document.getElementById('emailBodyTextarea'),
     btnCopyEmail: document.getElementById('btnCopyEmail'),
     btnOpenMailto: document.getElementById('btnOpenMailto'),
+    btnMarkPass: document.getElementById('btnMarkPass'),
 
     // Toasts
     toastContainer: document.getElementById('toastContainer'),
@@ -595,8 +596,20 @@
           el.pasteLeadInput.value = '';
           showToast('线索已成功入库并生成跟进策略', 'success');
 
-          // 自动弹出专业跟进邮件生成工作台
+          // 自动弹出专业跟进邮件生成工作台（含决策卡与 Pass/拒绝分流）
           if (res && res.lead && res.lead.id) {
+            const lead = res.lead;
+            try {
+              const analysis = window.InquiryResponder.analyzeLead(lead);
+              const validity = window.InquiryResponder.judgeValidity(lead, analysis);
+              if (validity.disposition === 'PASS') {
+                showToast(`判定：${validity.label} — ${validity.summary}`, 'warn');
+              } else if (validity.disposition === 'DECLINE') {
+                showToast(`判定：${validity.label} — 已准备拒绝函模板`, 'warn');
+              } else if (validity.disposition === 'NEED_INFO') {
+                showToast(`判定：${validity.label} — 建议短问补参`, 'info');
+              }
+            } catch (e) {}
             openEmailModal(res.lead.id);
           }
         } catch (err) {
@@ -1054,12 +1067,20 @@
     currentEmailLead = lead;
     currentEmailAnalysis = window.InquiryResponder.analyzeLead(lead);
 
-    // 记录邮件生成，驱动漏斗
-    if (!lead.email_generated_at) {
+    // 有效询盘判定 + 决策卡
+    const validity = window.InquiryResponder.judgeValidity(lead, currentEmailAnalysis);
+    currentEmailAnalysis.validity = validity;
+    const card = window.InquiryResponder.buildDecisionCard(lead, currentEmailAnalysis);
+    renderDecisionCard(card, validity);
+
+    // 记录邮件生成，驱动漏斗（Pass 不算已发邮件）
+    if (validity.disposition !== 'PASS' && !lead.email_generated_at) {
       lead.email_generated_at = new Date().toISOString();
       if (!lead.status || lead.status === 'new') lead.status = 'emailed';
       persistLeadMutation(lead);
     }
+    lead.validity_disposition = validity.disposition;
+    lead.validity_label = validity.label;
 
     // 渲染头部
     el.emailModalClientTitle.innerText = `${currentEmailAnalysis.callName} (${currentEmailAnalysis.cleanEnglishCompany})`;
@@ -1069,13 +1090,60 @@
     if (currentEmailAnalysis.persona === 'TYPE_A_ACADEMIC') personaTag = `<span class="badge badge-info">高校科研团队</span>`;
     else if (currentEmailAnalysis.persona === 'TYPE_S_SUPPLIER') personaTag = `<span class="badge badge-warn">外协供应链</span>`;
     else if (currentEmailAnalysis.persona === 'TYPE_D_DISQUALIFIED') personaTag = `<span class="badge badge-crit">业务边界回绝</span>`;
+    if (validity.disposition === 'PASS') personaTag = `<span class="badge badge-crit">${escapeHtml(validity.label)}</span>`;
+    else if (validity.disposition === 'DECLINE') personaTag = `<span class="badge badge-warn">${escapeHtml(validity.label)}</span>`;
+    else if (validity.disposition === 'NEED_INFO') personaTag = `<span class="badge badge-warn">${escapeHtml(validity.label)}</span>`;
     el.emailModalPersonaBadge.innerHTML = personaTag;
 
-    // 获取适用的 3 种策略切角
-    const strategies = window.InquiryResponder.getStrategies(currentEmailAnalysis);
+    // 策略切角（含 Pass / 拒绝 / 补参分流）
+    const strategies = window.InquiryResponder.getStrategies(currentEmailAnalysis, lead);
     renderEmailStrategies(strategies);
 
     el.modalEmail.classList.add('active');
+  }
+
+  function renderDecisionCard(card, validity) {
+    const host = document.getElementById('decisionCard');
+    if (!host || !card) return;
+    const v = validity || card.validity;
+    const chips = (v.reasons || []).map(r => `<span class="dc-chip ${v.badge || 'info'}">${escapeHtml(r)}</span>`).join('');
+    const present = (card.params_present || []).length
+      ? card.params_present.map(x => escapeHtml(x)).join(' · ')
+      : '（未识别到工程参数）';
+    const missing = (card.params_missing || []).length
+      ? card.params_missing.map(x => `<span class="dc-chip warn">${escapeHtml(x)}</span>`).join('')
+      : '<span class="dc-chip success">关键参数较完整</span>';
+    const steps = (card.next_steps || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+
+    host.innerHTML = `
+      <div class="dc-block">
+        <div class="dc-label">对方是谁</div>
+        <div class="dc-value">
+          <strong>${escapeHtml(card.who?.name || '-')}</strong> · ${escapeHtml(card.who?.company || '-')}<br>
+          ${escapeHtml(card.who?.title || '-')}<br>
+          <span style="color: var(--text-muted);">${escapeHtml(card.who?.industry || '')}</span>
+        </div>
+      </div>
+      <div class="dc-block">
+        <div class="dc-label">有效性判定 · 评分</div>
+        <div class="dc-value">
+          <div class="dc-chip ${v.badge || 'info'}" style="font-size: 12px;">${escapeHtml(v.label || '')}</div><br>
+          ${chips}
+          <div style="margin-top: 6px; font-family: var(--font-mono); font-size: 11px;">
+            ${escapeHtml(card.score?.tier || '-')} · 成熟度 ${escapeHtml(String(card.score?.maturity ?? '-'))}/5
+          </div>
+          <div style="margin-top: 4px; color: var(--text-muted); font-size: 11px; line-height: 1.45;">${escapeHtml(v.summary || '')}</div>
+        </div>
+      </div>
+      <div class="dc-block">
+        <div class="dc-label">参数与下一步</div>
+        <div class="dc-value">
+          <div style="margin-bottom: 4px;"><span style="color: var(--text-dim);">已有:</span> ${present}</div>
+          <div style="margin-bottom: 6px;"><span style="color: var(--text-dim);">缺失:</span> ${missing}</div>
+          <ol>${steps}</ol>
+        </div>
+      </div>
+    `;
   }
 
   function renderEmailStrategies(strategies) {
@@ -1170,6 +1238,11 @@
 
   function bindEmailEvents() {
     function assertOutboundReady() {
+      // Pass 归档说明仅内部使用，不做外发校验
+      if (selectedStrategyId === 'pass_archive') {
+        showToast('这是内部归档说明，请勿外发。已可直接标记 Pass', 'warn');
+        return false;
+      }
       if (!window.InquiryResponder || !window.InquiryResponder.validateOutbound) return true;
       const check = window.InquiryResponder.validateOutbound(selectedSubjectText, el.emailBodyTextarea && el.emailBodyTextarea.value);
       if (!check.ok) {
@@ -1186,6 +1259,23 @@
         navigator.clipboard.writeText(text).then(() => {
           showToast('纯英文跟进邮件（包含主题行）已复制到剪贴板', 'success');
         });
+      });
+    }
+
+    if (el.btnMarkPass) {
+      el.btnMarkPass.addEventListener('click', async () => {
+        if (!currentEmailLead) return;
+        currentEmailLead.status = 'passed';
+        currentEmailLead.validity_disposition = 'PASS';
+        currentEmailLead.passed_at = new Date().toISOString();
+        persistLeadMutation(currentEmailLead);
+        if (window.syncService && window.syncService.deleteLead) {
+          // 软删除归档，保留墓碑
+          await window.syncService.deleteLead(currentEmailLead.id);
+        }
+        showToast('已标记 Pass 并归档，不生成外发邮件', 'success');
+        if (el.modalEmail) el.modalEmail.classList.remove('active');
+        refreshVisibleTable();
       });
     }
 

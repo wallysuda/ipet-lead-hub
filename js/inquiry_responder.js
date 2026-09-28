@@ -52,12 +52,15 @@ const InquiryResponder = {
     const fullText = (rawText + " " + rawRequirements + " " + fieldsStr + " " + jobTitle + " " + company + " " + formName).toLowerCase();
 
     // 1. 优先排除与识别无效误触/宠物玩具/红线 (防宠物/防玩具壁垒)
+    // 注意：consumer/toy drone 属于消费级而非宠物，应走 DECLINE 而非 DISQUALIFIED
     const nonBrandText = fullText.replace(/ipet/gi, "");
+    const consumerDroneNoise = /\b(consumer drone|toy drone|kids drone|hobby grade|hobby drone|fpv freestyle|rc toy)\b/i.test(nonBrandText);
     const hasPetConfusion = lead.jev_analysis?.has_pet_confusion === true ||
-      /\b(pet|pets|dog|dogs|cat|cats|puppy|kitten|toy|toys|collar|pet food|fpv racer|chew)\b/i.test(nonBrandText);
+      /\b(pet|pets|dog|dogs|cat|cats|puppy|kitten|collar|leash|pet food|dog food|cat food|pet shop|pet store|chew)\b/i.test(nonBrandText) ||
+      /\b(plush toy|toy factory|toys wholesale|children toy)\b/i.test(nonBrandText);
     const isDisqualifiedTier = lead.jev_analysis?.tier === "DISQUALIFIED";
 
-    if (hasPetConfusion || isDisqualifiedTier) {
+    if ((hasPetConfusion || isDisqualifiedTier) && !consumerDroneNoise) {
       return "TYPE_D_DISQUALIFIED";
     }
 
@@ -95,6 +98,264 @@ const InquiryResponder = {
     }
 
     return "TYPE_C_LOW_INFO";
+  },
+
+  /**
+   * 有效询盘判定（核心销售口径）
+   * disposition:
+   *   FOLLOW_UP  — 有效商机，跟进/生成邮件
+   *   DECLINE    — 有人有公司，但不在业务边界，礼貌拒绝
+   *   PASS       — 无效/噪音/误触，直接归档不回复
+   *   SUPPLIER   — 供应商自荐，走供应链策略（可跟进但不是买家）
+   *   NEED_INFO  — 疑似有效但信息过薄，可短问补参或暂缓
+   */
+  judgeValidity: function (lead, analysis) {
+    const a = analysis || this.analyzeLead(lead);
+    const fullText = [
+      lead.raw_requirements, lead.raw_text, lead.name, lead.company,
+      lead.job_title, lead.email, JSON.stringify(lead.fields_filled || {})
+    ].join(' ').toLowerCase().replace(/ipet/gi, '');
+
+    const reasons = [];
+    const missing = [];
+    const params = a.detectedParams || a.technical_parameters || lead.detected_params || lead.technical_parameters || {};
+
+    // ---- 垃圾/求职/空文本：PASS ----
+    const spamPitch = /\b(seo service|web design|loan|casino|crypto investment|marketing agency|guest post)\b/i.test(fullText);
+    const jobSeeker = /\b(internship|intern\b|job application|looking for a job|cv attached|resume attached|fresh graduate|hiring|recruitment)\b/i.test(fullText) ||
+      /\b(求职|应聘|实习|简历)\b/.test(fullText);
+    const gibberish = (lead.raw_requirements || lead.raw_text || '').trim().length < 8 &&
+      !lead.email && !lead.phone;
+
+    if (spamPitch) {
+      reasons.push('垃圾营销/无关推销');
+      return {
+        disposition: 'PASS',
+        label: '直接 Pass · 垃圾信息',
+        badge: 'crit',
+        reasons,
+        missing,
+        summary: '与工业动力业务无关的营销/垃圾信息。',
+        recommended_action: 'pass'
+      };
+    }
+    if (jobSeeker) {
+      reasons.push('求职/招聘/简历');
+      return {
+        disposition: 'PASS',
+        label: '直接 Pass · 求职噪音',
+        badge: 'crit',
+        reasons,
+        missing,
+        summary: '求职或招聘类信息，不是采购询盘。',
+        recommended_action: 'pass'
+      };
+    }
+    if (gibberish) {
+      reasons.push('信息严重不足且无联系方式');
+      return {
+        disposition: 'PASS',
+        label: '直接 Pass · 无法识别',
+        badge: 'warn',
+        reasons,
+        missing,
+        summary: '几乎没有可用字段与联系方式，无法作为询盘处理。',
+        recommended_action: 'pass'
+      };
+    }
+
+    // ---- 消费级/异业（真实联系人）：DECLINE ----
+    const wrongIndustry = /\b(household|kitchen|garden tool|fashion|cosmetic|food delivery|hotel|restaurant|car wash|real estate|law firm|accounting)\b/i.test(fullText);
+    const consumer = /\b(consumer drone|toy drone|kids drone|rc hobby|hobby grade|fpv freestyle|hobby drone|rc toy)\b/i.test(fullText);
+    const hasContact = !!(lead.email || lead.phone);
+    const hasIdentity = !!(lead.name || lead.company);
+
+    if ((wrongIndustry || consumer) && hasIdentity) {
+      if (wrongIndustry) reasons.push('行业不符');
+      if (consumer) reasons.push('消费级/航模而非工业');
+      return {
+        disposition: 'DECLINE',
+        label: '生成礼貌拒绝函',
+        badge: 'warn',
+        reasons,
+        missing,
+        summary: '对方真实存在，但需求不在工业无人机动力总成业务边界内，建议发一封简短拒绝/澄清函。',
+        recommended_action: 'decline'
+      };
+    }
+
+    // ---- 宠物/玩具误触：PASS 不回复 ----
+    const petNoise = a.hasPetConfusion === true ||
+      (!consumer && (a.isDisqualified || a.persona === 'TYPE_D_DISQUALIFIED')) ||
+      /\b(pet food|dog food|cat food|pet shop|pet store|veterinary|plush toy|toy factory)\b/i.test(fullText) ||
+      /\b(pet|pets|dog|dogs|cat|cats|puppy|kitten)\b/i.test(fullText) && /\b(food|shop|store|care|grooming|collar|leash)\b/i.test(fullText);
+
+    if (petNoise) {
+      reasons.push('宠物/玩具/消费噪音');
+      return {
+        disposition: 'PASS',
+        label: '直接 Pass · 无需回复',
+        badge: 'crit',
+        reasons,
+        missing,
+        summary: '内容属于宠物/玩具/消费类误触，不是工业无人机询盘，建议归档不回复。',
+        recommended_action: 'pass'
+      };
+    }
+
+    const competitorFishing = /\b(only price|just the price|price list only|no project|no specs|随便问问)\b/i.test(fullText) &&
+      !params.mtow && !params.payload && !params.voltage;
+
+    if (competitorFishing) {
+      reasons.push('只要报价无项目参数');
+      return {
+        disposition: 'PASS',
+        label: '直接 Pass · 无项目意向',
+        badge: 'warn',
+        reasons,
+        missing: ['MTOW/载荷', '电压平台', '项目阶段'],
+        summary: '只索取价目且无任何工程/项目信息，商业价值低。',
+        recommended_action: 'pass'
+      };
+    }
+
+    // ---- SUPPLIER ----
+    if (a.persona === 'TYPE_S_SUPPLIER' || a.isSupplierPitch) {
+      reasons.push('供应商/外协自荐');
+      return {
+        disposition: 'SUPPLIER',
+        label: '供应链策略 · 非买家',
+        badge: 'info',
+        reasons,
+        missing: ['Line Card', '工艺能力', 'NDA 意愿'],
+        summary: '供应商自荐，不是采购询盘；走供应链收资料/NDA 流程，不要当 OEM 买家跟进。',
+        recommended_action: 'supplier'
+      };
+    }
+
+    // ---- 有效买家侧：评估完整度 ----
+    if (!params.mtow && !params.payload && !params.thrust) missing.push('MTOW/载荷/推力');
+    if (!params.voltage) missing.push('电压平台');
+    if (!params.uav_type && !params.propeller) missing.push('机型形态/桨规格');
+    if (!params.stage) missing.push('项目阶段');
+    if (!lead.email && !lead.phone) missing.push('有效联系方式');
+
+    const jev = lead.jev_analysis || {};
+    const isStrong = jev.tier === 'TIER_1_READY_RFQ' || (jev.maturity_score || 0) >= 3.5;
+    const strongBuyerKeywords = /\b(rfq|quote|procurement|procuring|sample|flight test|prototype|oem|powertrain|motor|esc|heavy lift|payload|mtow|propulsion|sourcing)\b/i.test(fullText);
+    const looksRealBuyer =
+      isStrong ||
+      strongBuyerKeywords ||
+      (a.persona === 'TYPE_A_ACADEMIC') ||
+      (a.persona === 'TYPE_B_COMMERCIAL_OEM' && strongBuyerKeywords);
+
+    // 信息过薄优先：即使沾了 drone/uav 词，参数与意图都不够时先补参
+    if (missing.length >= 3 && (jev.maturity_score || 0) < 2.5 && !strongBuyerKeywords && !isStrong) {
+      reasons.push('线索过薄且无强买家信号');
+      return {
+        disposition: 'NEED_INFO',
+        label: '信息过薄 · 短问补参或暂缓',
+        badge: 'warn',
+        reasons,
+        missing,
+        summary: '尚不足以判定为有效询盘；可发 2–3 个补参问题，或标为暂缓。',
+        recommended_action: 'need_info'
+      };
+    }
+
+    if (looksRealBuyer || a.persona === 'TYPE_B_COMMERCIAL_OEM') {
+      reasons.push(isStrong || strongBuyerKeywords ? '高意向买家信号' : '有效买家询盘');
+      return {
+        disposition: 'FOLLOW_UP',
+        label: '有效询盘 · 立即跟进',
+        badge: 'success',
+        reasons,
+        missing,
+        summary: (isStrong || strongBuyerKeywords)
+          ? '明确的工业无人机/动力总成采购或工程询盘，建议立即按策略跟进并索要缺失参数。'
+          : '识别为有效询盘，建议生成跟进邮件并补齐关键工程参数。',
+        recommended_action: 'follow_up'
+      };
+    }
+
+    reasons.push('默认按低信息线索处理');
+    return {
+      disposition: 'NEED_INFO',
+      label: '待确认 · 建议补参',
+      badge: 'warn',
+      reasons,
+      missing,
+      summary: '信号偏弱，建议补问关键参数后再定级。',
+      recommended_action: 'need_info'
+    };
+  },
+
+  /**
+   * 销售决策卡：5 秒可读
+   */
+  buildDecisionCard: function (lead, analysis) {
+    const a = analysis || this.analyzeLead(lead);
+    const v = this.judgeValidity(lead, a);
+    const params = a.detectedParams || lead.detected_params || lead.technical_parameters || {};
+    const jev = lead.jev_analysis || {};
+
+    return {
+      who: {
+        name: a.callName || lead.name || 'Partner',
+        company: a.cleanEnglishCompany || lead.company || '-',
+        title: lead.job_title || '-',
+        persona: a.persona,
+        industry: a.industryProfile || '-'
+      },
+      validity: v,
+      score: {
+        tier: jev.tier || '-',
+        maturity: jev.maturity_score != null ? Number(jev.maturity_score).toFixed(1) : '-',
+        source: jev.source || '-'
+      },
+      params_present: Object.entries(params)
+        .filter(([, val]) => val !== '' && val != null)
+        .map(([k, val]) => `${k}: ${val}`),
+      params_missing: v.missing || [],
+      next_steps: this._nextStepsForDisposition(v.disposition, v.missing || [], a)
+    };
+  },
+
+  _nextStepsForDisposition: function (disposition, missing, analysis) {
+    if (disposition === 'PASS') {
+      return [
+        '标记为 Pass，写入否定库（邮箱后缀/关键词）',
+        '无需生成外发邮件',
+        '表格中软删除或归档'
+      ];
+    }
+    if (disposition === 'DECLINE') {
+      return [
+        '生成 3–5 句礼貌拒绝/业务边界澄清函',
+        '发送后标记已跟进',
+        '勿发送任何工程选型资料'
+      ];
+    }
+    if (disposition === 'SUPPLIER') {
+      return [
+        '发送供应商收件模板（Line Card / 工艺能力）',
+        '如需图纸资料先签 MNDA',
+        '转供应链，不当 OEM 商机推进'
+      ];
+    }
+    if (disposition === 'NEED_INFO') {
+      return [
+        '发 2–3 个补参问题：' + (missing.slice(0, 3).join('、') || 'MTOW/电压/项目阶段'),
+        '暂不发送完整选型包',
+        '48h 无回复则暂缓'
+      ];
+    }
+    const steps = ['打开跟进邮件，选策略切角并发送'];
+    if (missing.length) {
+      steps.push('邮件中追问缺失参数：' + missing.slice(0, 3).join('、'));
+    }
+    steps.push('标记已跟进，记录策略与主题行');
+    return steps;
   },
 
   // 1. 深度解析提取客户与询盘实体 (Deep Inquiry Entity Extraction)
@@ -319,8 +580,67 @@ const InquiryResponder = {
     };
   },
 
-  // 2. 获取该客户适用的 3 种策略切角
-  getStrategies: function (analysis) {
+  // 2. 获取该客户适用的策略切角（含有效询盘判定分流）
+  getStrategies: function (analysis, lead) {
+    let validity = null;
+    if (lead) {
+      try {
+        validity = this.judgeValidity(lead, analysis);
+        analysis = { ...analysis, validity };
+      } catch (e) {}
+    }
+
+    if (validity && validity.disposition === 'PASS') {
+      return [
+        {
+          id: "pass_archive",
+          label: "Pass · 写入否定库并归档",
+          tag: "推荐主力",
+          desc: "不外发任何邮件。记录否定关键词/邮箱后缀，软删除或归档该线索"
+        },
+        {
+          id: "disqualify_brief",
+          label: "极简业务边界回绝（仅当对方曾明确追问）",
+          tag: "可选",
+          desc: "若对方连续追问，可用 1–2 句说明 IPET 仅做工业重载动力总成后归档"
+        }
+      ];
+    }
+
+    if (validity && validity.disposition === 'DECLINE') {
+      return [
+        {
+          id: "decline_polite",
+          label: "礼貌拒绝 · 业务边界澄清",
+          tag: "推荐主力",
+          desc: "感谢来信，说明 IPET 专注工业无人机动力总成，无法承接该需求，祝好"
+        },
+        {
+          id: "disqualify_brief",
+          label: "极简业务范围回绝",
+          tag: "高效归档",
+          desc: "一两句话澄清业务边界，礼貌结束线程"
+        }
+      ];
+    }
+
+    if (validity && validity.disposition === 'NEED_INFO') {
+      return [
+        {
+          id: "need_info_questions",
+          label: "短问补参 · 2–3 个关键问题",
+          tag: "推荐主力",
+          desc: "不塞选型包，只问 MTOW/电压/项目阶段，确认后再进入正式跟进"
+        },
+        {
+          id: "need_info_catalog",
+          label: "补参 + 附目录摘要",
+          tag: "培育",
+          desc: "索取关键参数的同时附一页产品目录摘要，适合研发初期客户"
+        }
+      ];
+    }
+
     if (analysis.isDisqualified || analysis.persona === "TYPE_D_DISQUALIFIED") {
       return [
         {
@@ -483,6 +803,33 @@ const InquiryResponder = {
     let options = [];
 
     switch (strategyId) {
+      case "pass_archive":
+        return [{ text: `Internal archive — no outbound`, label: "内部归档 · 不外发" }];
+
+      case "decline_polite":
+        options = [
+          { text: `Thank you for contacting IPET SYSTEM, ${name}`, label: "礼貌收尾 (官方)" },
+          { text: `Regarding your inquiry to IPET SYSTEM`, label: "业务边界澄清 (克制)" },
+          { text: `We appreciate your interest in IPET SYSTEM`, label: "友好拒绝 (不展开)" }
+        ];
+        break;
+
+      case "need_info_questions":
+        options = [
+          { text: `Three quick sizing questions for your UAV program`, label: "补参三问 (高效)" },
+          { text: `To size your powertrain, we need three inputs`, label: "选型前置 (工程口吻)" },
+          { text: `Quick requirements check for ${compShort}`, label: "需求确认 (短平快)" }
+        ];
+        break;
+
+      case "need_info_catalog":
+        options = [
+          { text: `Sizing questions + industrial product overview`, label: "补参+目录 (培育)" },
+          { text: `IPET powertrain overview for ${compShort}`, label: "产品摘要 (轻培育)" },
+          { text: `Next steps to size your UAV powertrain`, label: "下一步引导 (推进)" }
+        ];
+        break;
+
       case "disqualify_polite":
         options = [
           { text: `Inquiry regarding IPET SYSTEM products`, label: "业务边界澄清 (礼貌官方)" },
@@ -655,10 +1002,95 @@ const InquiryResponder = {
     const p = analysis.detectedParams || {};
     const englishAirframe = analysis.englishAirframe || "multirotor airframe";
 
+    // 有效询盘判定分流
+    const validity = analysis.validity ||
+      (typeof analysis === 'object' && analysis.disposition ? analysis : null);
+
+    // 参数摘要行（有参数才写入外发邮件）
+    const paramBits = [];
+    if (p.mtow) paramBits.push(`MTOW ${p.mtow}`);
+    if (p.payload) paramBits.push(`payload ${p.payload}`);
+    if (p.voltage) paramBits.push(`bus voltage ${p.voltage}`);
+    if (p.thrust) paramBits.push(`thrust ${p.thrust}`);
+    if (p.uav_type) paramBits.push(`airframe ${p.uav_type}`);
+    if (p.stage) paramBits.push(`stage ${p.stage}`);
+    if (p.quantity) paramBits.push(`quantity ${p.quantity}`);
+    const paramLine = paramBits.length
+      ? `To confirm our understanding from your note: ${paramBits.join(', ')}.`
+      : '';
+
+    const missingQuestions = [];
+    if (!p.mtow && !p.payload && !p.thrust) missingQuestions.push('What is the target MTOW class (or payload capacity) of your aircraft?');
+    if (!p.voltage) missingQuestions.push('What is the battery / DC bus voltage architecture (e.g. 6S, 12S, 48V)?');
+    if (!p.uav_type && !p.propeller) missingQuestions.push('What is the airframe layout and approximate propeller size?');
+    if (!p.stage) missingQuestions.push('What is the current project stage (concept, prototype, flight test, or sourcing)?');
+
     let body = "";
 
+    // 0. Pass · 不外发（仅内部归档说明）
+    if (strategyId === "pass_archive") {
+      return `INTERNAL ARCHIVE NOTE — DO NOT SEND TO CUSTOMER
+
+Disposition: PASS (non-inquiry / noise)
+Company: ${comp}
+Reason: Outside industrial UAV powertrain buying intent.
+
+Actions:
+1. Add email domain / keywords to the negative library
+2. Soft-delete or archive this record
+3. No outbound email is required
+
+IPET SYSTEM | Internal CRM`;
+    }
+
+    // 0b. 礼貌拒绝 · 业务边界
+    if (strategyId === "decline_polite") {
+      body = `Hi ${name},
+
+Thank you for contacting IPET SYSTEM.
+
+After reviewing your message, we are afraid this request sits outside our engineering scope. IPET SYSTEM focuses exclusively on industrial-grade UAV propulsion systems—brushless motors, FOC ESCs, and matched propellers for heavy-lift commercial and defense unmanned aircraft.
+
+We are not able to support this particular inquiry. We appreciate your time and wish you success with your project.
+
+Best regards,
+
+Customer Inquiries Desk
+IPET SYSTEM | Industrial UAV Powertrains
+https://ipetsystem.com`;
+    }
+
+    // 0c. 短问补参
+    else if (strategyId === "need_info_questions" || strategyId === "need_info_catalog") {
+      const qs = (missingQuestions.length ? missingQuestions : [
+        'What is the target MTOW class of your aircraft?',
+        'What battery / bus voltage are you using?',
+        'What is the project stage and expected timeline?'
+      ]).slice(0, 3);
+
+      body = `Hi ${name},
+
+Thank you for contacting IPET SYSTEM regarding your UAV powertrain interest at ${comp}.
+
+${paramLine ? paramLine + '\n\n' : ''}So that our application engineers can point you to the right motor / ESC / propeller set, could you please confirm:
+
+${qs.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+
+Once we have these three points, we will send a concise sizing recommendation and the relevant dyno sheets.
+
+Best regards,
+
+Application Engineering Team
+IPET SYSTEM | Industrial UAV Powertrains
+https://ipetsystem.com`;
+
+      if (strategyId === "need_info_catalog") {
+        body += `\n\nP.S. In the meantime, our industrial product families cover 5–100+ kg MTOW multirotor and VTOL platforms (I7 gimbal-payload class and I8 heavy-lift class).`;
+      }
+    }
+
     // 类别 1: 误触红线 / 无效线索 (DISQUALIFIED)
-    if (analysis.isDisqualified || strategyId === "disqualify_polite" || strategyId === "disqualify_brief") {
+    else if (analysis.isDisqualified || strategyId === "disqualify_polite" || strategyId === "disqualify_brief") {
       if (strategyId === "disqualify_brief") {
         body = `Hi ${name},
 
@@ -1140,6 +1572,30 @@ Best regards,
 Application Engineering Team
 IPET SYSTEM | Industrial UAV Powertrains
 https://ipetsystem.com`;
+    }
+
+    // 跟进类邮件：注入已识别参数 + 缺失参数追问（不改动拒绝/补参/供应商模板）
+    const holdParamInject = new Set([
+      'pass_archive', 'decline_polite', 'disqualify_polite', 'disqualify_brief',
+      'need_info_questions', 'need_info_catalog',
+      'supplier_intake', 'supplier_nda_review', 'supplier_decline'
+    ]);
+    if (body && !holdParamInject.has(strategyId)) {
+      const injections = [];
+      if (paramLine && !body.includes('To confirm our understanding')) {
+        injections.push(paramLine);
+      }
+      if (missingQuestions.length) {
+        injections.push('To complete the sizing pack, please also share: ' + missingQuestions.slice(0, 2).join(' '));
+      }
+      if (injections.length) {
+        const block = injections.join('\n\n');
+        if (body.includes('Best regards,')) {
+          body = body.replace('Best regards,', block + '\n\nBest regards,');
+        } else {
+          body = body + '\n\n' + block;
+        }
+      }
     }
 
     // 终极防线：绝对纯英文保证，彻底过滤任何中文字符与空括号
