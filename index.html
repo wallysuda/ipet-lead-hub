@@ -120,23 +120,36 @@
       <button class="btn btn-xs btn-outline" id="btnSelectAll">全选/清空</button>
     </div>
 
-    <!-- 10 列完整销售线索资产表格 -->
+    <!-- 线索资产表格：固定列宽，随显示器等比缩放 -->
     <section class="table-card">
       <div class="table-wrap">
         <table class="leads-table" id="leadsTable">
+          <colgroup>
+            <col style="width: 3.2%;">
+            <col style="width: 7.5%;">
+            <col style="width: 7.5%;">
+            <col style="width: 11.5%;">
+            <col style="width: 12%;">
+            <col style="width: 11.5%;">
+            <col style="width: 18%;">
+            <col style="width: 9%;">
+            <col style="width: 6.5%;">
+            <col style="width: 8.5%;">
+            <col style="width: 10.5%;">
+          </colgroup>
           <thead>
             <tr>
-              <th style="width: 36px;"><input type="checkbox" id="selectAllCheckbox" title="全选"></th>
-              <th style="width: 110px;">提交时间</th>
-              <th style="width: 130px;">客户姓名</th>
-              <th style="width: 180px;">企业邮箱</th>
-              <th style="width: 190px;">企业与职位</th>
-              <th style="width: 180px;">线索来源与获客场景</th>
-              <th style="min-width: 290px;">客户填写的具体采购与技术需求 (Project Requirements)</th>
-              <th style="width: 120px;">意图分级</th>
-              <th style="width: 88px;">成熟度</th>
-              <th style="min-width: 230px;">系统建议跟进策略</th>
-              <th style="width: 130px; text-align: center;">专业跟进操作</th>
+              <th class="col-check"><input type="checkbox" id="selectAllCheckbox" title="全选"></th>
+              <th class="col-time">提交时间</th>
+              <th class="col-name">客户姓名</th>
+              <th class="col-email">企业邮箱</th>
+              <th class="col-org">企业与职位</th>
+              <th class="col-source">线索来源与获客场景</th>
+              <th class="col-req">客户填写的具体采购与技术需求 (Project Requirements)</th>
+              <th class="col-intent">意图分级</th>
+              <th class="col-score">成熟度</th>
+              <th class="col-strategy">系统建议跟进策略</th>
+              <th class="col-action">专业跟进操作</th>
             </tr>
           </thead>
           <tbody id="leadsTableBody">

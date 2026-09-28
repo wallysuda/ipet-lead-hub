@@ -361,32 +361,142 @@ body {
   overflow-x: auto;
 }
 
+/* 线索表：固定列宽布局，随容器等比缩放 */
 .leads-table {
   width: 100%;
+  min-width: 1180px;
   border-collapse: collapse;
+  table-layout: fixed;
   text-align: left;
 }
 
 .leads-table th {
   background-color: #f8fafc;
-  padding: 10px 12px;
+  padding: 10px 10px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-subtle);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 .leads-table td {
-  padding: 11px 12px;
+  padding: 10px 10px;
   border-bottom: 1px solid #f1f5f9;
   font-size: 12px;
   vertical-align: top;
   line-height: 1.45;
+  overflow: hidden;
 }
 
 .leads-table tbody tr:hover {
   background-color: var(--bg-hover);
+}
+
+/* 各列显示规格 */
+.cell-check { text-align: center; vertical-align: middle !important; }
+
+.cell-time {
+  vertical-align: top !important;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.time-date { color: var(--text-main); white-space: nowrap; }
+.time-clock { color: var(--text-muted); white-space: nowrap; margin-top: 2px; }
+
+.cell-one-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle !important;
+}
+
+.cell-name strong { font-size: 12px; }
+
+.cell-email a {
+  color: #2563eb;
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.cell-email a:hover { text-decoration: underline; }
+
+.cell-org {
+  vertical-align: middle !important;
+}
+.cell-org strong {
+  font-size: 12px;
+}
+.cell-dim {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.cell-source .cell-source-tag {
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.cell-source .cell-source-tag .badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 100%;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+.cell-source-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+  max-height: 3.9em;
+  overflow: hidden;
+}
+
+.cell-req {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.cell-score {
+  text-align: center;
+  vertical-align: middle !important;
+}
+.score-num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.score-hi { color: #059669; }
+.score-mid { color: #d97706; }
+
+.cell-strategy {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  max-height: 5.8em;
+  overflow: hidden;
+}
+
+.cell-action {
+  text-align: center;
+  vertical-align: middle !important;
+  white-space: nowrap;
+}
+.cell-action .btn {
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 通用徽章体系 */
@@ -483,7 +593,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  width: 100%;
 }
 
 .lead-table {

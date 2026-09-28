@@ -1027,29 +1027,55 @@
       else if (fullT.toLowerCase().includes("microelectronics")) cleanScenario = "微电子元器件外协对接 (Microelectronics Packaging)";
       const sourceInfo = resolveLeadSourceChannel({ ...l, channel_scenario: cleanScenario });
 
+      // 提交时间拆成 日期 / 时间 两行
+      let datePart = cleanSubmittedTime || '-';
+      let timePart = '';
+      const dtMatch = String(cleanSubmittedTime || '').match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}(?::\d{2})?)/);
+      if (dtMatch) {
+        datePart = dtMatch[1];
+        timePart = dtMatch[2];
+      } else if (String(cleanSubmittedTime || '').includes('T')) {
+        const d = new Date(cleanSubmittedTime);
+        if (!Number.isNaN(d.getTime())) {
+          datePart = d.toISOString().slice(0, 10);
+          timePart = d.toISOString().slice(11, 16);
+        }
+      }
+
+      const actionLabel = grade.code === 'G0_PASS' ? '处理 · Pass'
+        : grade.code === 'G1_DECLINE' ? '生成拒绝函'
+        : grade.code === 'G2_SUPPLIER' ? '供应链模板'
+        : grade.code === 'G3_NURTURE' ? '生成补参短问'
+        : '生成专业英文邮件';
+
       const tr = document.createElement('tr');
       tr.dataset.id = l.id;
       tr.innerHTML = `
-        <td style="text-align: center;"><input type="checkbox" class="row-select" data-id="${escapeHtml(l.id)}" ${selectedLeadIds.has(l.id) ? 'checked' : ''}></td>
-        <td><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(cleanSubmittedTime)}</span></td>
-        <td><strong>${cleanDisplayName}</strong></td>
-        <td>${l.email ? `<a href="mailto:${escapeHtml(l.email)}" style="color: #2563eb; text-decoration: none; font-family: var(--font-mono); font-size: 11px;">${escapeHtml(l.email)}</a>` : '<span style="color: var(--text-dim);">-</span>'}</td>
-        <td class="editable-cell" data-field="company" data-id="${escapeHtml(l.id)}" title="双击编辑企业/职位"><strong class="cell-company">${escapeHtml(cleanComp)}</strong><br><span class="cell-title" style="color: var(--text-dim); font-size: 11px;">${escapeHtml(cleanTitle)}</span></td>
-        <td style="max-width: 190px;">
-          <span class="badge ${sourceInfo.badgeClass}" style="font-size: 10px; padding: 2px 6px; font-weight: 600;">${escapeHtml(sourceInfo.channel)}</span>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.35;">${escapeHtml(sourceInfo.scenario)}</div>
+        <td class="cell-check"><input type="checkbox" class="row-select" data-id="${escapeHtml(l.id)}" ${selectedLeadIds.has(l.id) ? 'checked' : ''}></td>
+        <td class="cell-time">
+          <div class="time-date">${escapeHtml(datePart)}</div>
+          ${timePart ? `<div class="time-clock">${escapeHtml(timePart)}</div>` : ''}
         </td>
-        <td style="max-width: 300px;">${fieldsHtml}</td>
+        <td class="cell-one-line cell-name"><strong>${cleanDisplayName}</strong></td>
+        <td class="cell-one-line cell-email">${l.email ? `<a href="mailto:${escapeHtml(l.email)}" title="${escapeHtml(l.email)}">${escapeHtml(l.email)}</a>` : '<span class="cell-dim">-</span>'}</td>
+        <td class="cell-one-line cell-org editable-cell" data-field="company" data-id="${escapeHtml(l.id)}" title="双击编辑企业/职位">
+          <strong>${escapeHtml(cleanComp)}</strong>${cleanTitle && cleanTitle !== '-' ? `<span class="cell-dim"> · ${escapeHtml(cleanTitle)}</span>` : ''}
+        </td>
+        <td class="cell-source">
+          <div class="cell-source-tag"><span class="badge ${sourceInfo.badgeClass}">${escapeHtml(sourceInfo.channel)}</span></div>
+          <div class="cell-source-desc" title="${escapeHtml(sourceInfo.scenario || '')}">${escapeHtml(sourceInfo.scenario || '')}</div>
+        </td>
+        <td class="cell-req">${fieldsHtml}</td>
         <td class="intent-cell">
           <div class="intent-row">
             <span class="badge ${badge} intent-badge">${tierLabel}</span>${liveBadge}
           </div>
           <div class="intent-action" title="${escapeHtml(grade.primary_action || '')}">${escapeHtml(grade.primary_action || '')}</div>
         </td>
-        <td><strong style="font-family: var(--font-mono); font-size: 13px; color: ${(grade.maturity || 0) >= 4.0 ? '#059669' : '#d97706'};">${(grade.maturity || 0).toFixed(1)} / 5.0</strong></td>
-        <td style="font-size: 11px; color: var(--text-muted); max-width: 250px; line-height: 1.4;">${escapeHtml(j.recommended_action || grade.primary_action || '-')}</td>
-        <td style="text-align: center;">
-          <button class="btn btn-xs btn-primary btn-action-email" data-id="${escapeHtml(l.id)}" style="white-space: nowrap;">${grade.code === 'G0_PASS' ? '处理 · Pass' : grade.code === 'G1_DECLINE' ? '生成拒绝函' : '生成专业英文邮件'}</button>
+        <td class="cell-one-line cell-score"><span class="score-num ${ (grade.maturity || 0) >= 4.0 ? 'score-hi' : 'score-mid'}">${(grade.maturity || 0).toFixed(1)} / 5.0</span></td>
+        <td class="cell-strategy">${escapeHtml(j.recommended_action || grade.primary_action || '-')}</td>
+        <td class="cell-action">
+          <button class="btn btn-xs btn-primary btn-action-email" data-id="${escapeHtml(l.id)}">${escapeHtml(actionLabel)}</button>
         </td>
       `;
       el.leadsTableBody.appendChild(tr);
