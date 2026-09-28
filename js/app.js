@@ -962,13 +962,16 @@
       };
 
       const grade = resolveIntentGrade(l);
-      const tierLabel = grade.label;
+      // 表格用紧凑标签，避免换行截断
+      const gradeCode = (grade.code || '').split('_')[0] || 'G-';
+      const gradeShort = grade.short || grade.label || '';
+      const tierLabel = `${gradeCode} ${gradeShort}`;
       const badge = `badge-${grade.badge}`;
 
       const isLiveApi = j.source === 'jev_live';
-      const liveBadge = isLiveApi ? `
-        <span class="badge-jev-live" title="TypeSafe Jev (${escapeHtml(j.model || 'jev-1.13.0')}) 真实大模型 API 研判结果 (置信度: ${Math.round((j.confidence || 0.95)*100)}%)">Jev Live</span>
-      ` : '';
+      const liveBadge = isLiveApi
+        ? `<span class="jev-mini" title="TypeSafe Jev ${escapeHtml(j.model || 'jev-latest')}">Jev</span>`
+        : '';
 
       const analyzedFields = synthesizeLeadFields(l);
       const fieldsHtml = Object.entries(analyzedFields).map(([k, v]) => `
@@ -1021,8 +1024,11 @@
           <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.35;">${escapeHtml(sourceInfo.scenario)}</div>
         </td>
         <td style="max-width: 300px;">${fieldsHtml}</td>
-        <td><span class="badge ${badge}">${tierLabel}</span>${liveBadge}
-          <div style="margin-top:4px;font-size:10px;color:var(--text-muted);">${escapeHtml(grade.primary_action || '')}</div>
+        <td class="intent-cell">
+          <div class="intent-row">
+            <span class="badge ${badge} intent-badge">${tierLabel}</span>${liveBadge}
+          </div>
+          <div class="intent-action" title="${escapeHtml(grade.primary_action || '')}">${escapeHtml(grade.primary_action || '')}</div>
         </td>
         <td><strong style="font-family: var(--font-mono); font-size: 13px; color: ${(grade.maturity || 0) >= 4.0 ? '#059669' : '#d97706'};">${(grade.maturity || 0).toFixed(1)} / 5.0</strong></td>
         <td style="font-size: 11px; color: var(--text-muted); max-width: 250px; line-height: 1.4;">${escapeHtml(j.recommended_action || grade.primary_action || '-')}</td>
