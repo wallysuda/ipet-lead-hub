@@ -164,6 +164,25 @@ const InquiryResponder = {
       };
     }
 
+    // ---- 人工背调覆盖（最高优先级之一）----
+    const ov = lead.enrichment_override || (lead.enrichment_manual && {
+      is_likely_target: lead.enrichment_manual.target === 'yes' ? true :
+        lead.enrichment_manual.target === 'no' ? false : null,
+      industry: lead.enrichment_manual.industry
+    });
+    if (ov && ov.is_likely_target === false) {
+      reasons.push('人工背调判定非目标客群');
+      return {
+        disposition: 'DECLINE',
+        label: '背调否决 · 礼貌拒绝',
+        badge: 'warn',
+        reasons,
+        missing,
+        summary: '人工背调已标记为非目标客群，建议拒绝/归档，不再按有效买家跟进。',
+        recommended_action: 'decline'
+      };
+    }
+
     // ---- 消费级/异业（真实联系人）：DECLINE ----
     const wrongIndustry = /\b(household|kitchen|garden tool|fashion|cosmetic|food delivery|hotel|restaurant|car wash|real estate|law firm|accounting)\b/i.test(fullText);
     const consumer = /\b(consumer drone|toy drone|kids drone|rc hobby|hobby grade|fpv freestyle|hobby drone|rc toy)\b/i.test(fullText);

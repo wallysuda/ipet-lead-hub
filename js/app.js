@@ -81,7 +81,23 @@
     funnelOther: document.getElementById('funnelOther'),
     funnelEmailed: document.getElementById('funnelEmailed'),
     funnelFollowed: document.getElementById('funnelFollowed'),
-    funnelPassed: document.getElementById('funnelPassed')
+    funnelPassed: document.getElementById('funnelPassed'),
+
+    // Enrichment
+    enrichPanel: document.getElementById('enrichPanel'),
+    enrichConfidence: document.getElementById('enrichConfidence'),
+    enrichManualBadge: document.getElementById('enrichManualBadge'),
+    btnEnrichNow: document.getElementById('btnEnrichNow'),
+    btnEnrichReset: document.getElementById('btnEnrichReset'),
+    btnEnrichSave: document.getElementById('btnEnrichSave'),
+    enrichCompany: document.getElementById('enrichCompany'),
+    enrichWebsite: document.getElementById('enrichWebsite'),
+    enrichIndustry: document.getElementById('enrichIndustry'),
+    enrichTarget: document.getElementById('enrichTarget'),
+    enrichSummary: document.getElementById('enrichSummary'),
+    enrichNote: document.getElementById('enrichNote'),
+    enrichSources: document.getElementById('enrichSources'),
+    enrichNoteBox: document.getElementById('enrichNoteBox')
   };
 
   function updateBatchBar() {
@@ -426,6 +442,167 @@
     return `${window.location.origin}${window.location.pathname}#t=${encodeURIComponent(token)}`;
   }
 
+  // ========== 自动背调（可人工修正） ==========
+  function enrichAuthHeaders(extra = {}) {
+    const token = (typeof window !== 'undefined' && window.IPET_HUB_TOKEN) ||
+                  (typeof localStorage !== 'undefined' && localStorage.getItem('IPET_HUB_TOKEN')) ||
+                  '';
+    return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
+  }
+
+  async function runEnrichment(lead, options = { silent: false }) {
+    if (!lead) return null;
+    if (el.btnEnrichNow) el.btnEnrichNow.disabled = true;
+    if (!options.silent && el.enrichNoteBox) {
+      el.enrichNoteBox.textContent = '正在抓取公开网页信号（官网 / 搜索摘要）…';
+    }
+    try {
+      const res = await fetch('/api/enrich', {
+        method: 'POST',
+        headers: enrichAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          company: lead.company || '',
+          email: lead.email || '',
+          name: lead.name || '',
+          job_title: lead.job_title || '',
+          text: (lead.raw_requirements || lead.raw_text || '')
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      lead.enrichment = data.enrichment;
+      lead.enrichment_at = data.enrichment.researched_at;
+      // 自动结果不覆盖人工修正
+      if (!lead.enrichment_manual) {
+        lead.enrichment_auto = data.enrichment;
+      }
+      persistLeadMutation(lead);
+      renderEnrichment(lead);
+      if (!options.silent) showToast('自动背调完成，可核对后保存修正', 'success');
+      return data.enrichment;
+    } catch (e) {
+      console.warn('enrich failed', e);
+      if (!options.silent) showToast('自动背调失败: ' + e.message, 'error');
+      if (el.enrichNoteBox) {
+        el.enrichNoteBox.textContent = '自动背调失败或超时。可手动填写行业/官网后保存修正，不影响后续分析。';
+      }
+      return null;
+    } finally {
+      if (el.btnEnrichNow) el.btnEnrichNow.disabled = false;
+    }
+  }
+
+  function currentEnrichView(lead) {
+    const auto = lead.enrichment || lead.enrichment_auto || {};
+    const manual = lead.enrichment_manual || {};
+    return {
+      company: manual.company || lead.company || auto.query_company || '',
+      website: manual.website || (auto.website && auto.website.url) || '',
+      industry: manual.industry || (auto.industry_guess || []).join(' / ') || '',
+      target: manual.target != null && manual.target !== ''
+        ? manual.target
+        : (auto.is_likely_target === true ? 'yes' : auto.is_likely_target === false ? 'no' : ''),
+      summary: manual.summary || auto.search?.abstract || auto.website?.description || auto.website?.title || '',
+      note: manual.note || '',
+      confidence: auto.confidence || 'low',
+      is_manual: !!lead.enrichment_manual,
+      sources: auto.sources || [],
+      notes: auto.notes || []
+    };
+  }
+
+  function renderEnrichment(lead) {
+    if (!lead || !el.enrichPanel) return;
+    const v = currentEnrichView(lead);
+
+    if (el.enrichCompany) el.enrichCompany.value = v.company || '';
+    if (el.enrichWebsite) el.enrichWebsite.value = v.website || '';
+    if (el.enrichIndustry) el.enrichIndustry.value = v.industry || '';
+    if (el.enrichTarget) el.enrichTarget.value = v.target || '';
+    if (el.enrichSummary) el.enrichSummary.value = v.summary || '';
+    if (el.enrichNote) el.enrichNote.value = v.note || '';
+
+    if (el.enrichConfidence) {
+      const conf = v.is_manual ? 'high' : (v.confidence || 'low');
+      el.enrichConfidence.className = `enrich-badge ${conf}`;
+      el.enrichConfidence.textContent = v.is_manual
+        ? '已人工校准'
+        : ({ high: '背调高置信', medium: '背调中置信', low: '背调低置信' }[conf] || '未背调');
+    }
+    if (el.enrichManualBadge) {
+      if (v.is_manual) el.enrichManualBadge.removeAttribute('hidden');
+      else el.enrichManualBadge.setAttribute('hidden', '');
+    }
+
+    if (el.enrichSources) {
+      const parts = [];
+      (v.sources || []).forEach((s, i) => {
+        const label = s.label || s.url || `来源${i + 1}`;
+        parts.push(s.url ? `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>` : escapeHtml(label));
+      });
+      (v.notes || []).forEach(n => parts.push(escapeHtml(n)));
+      el.enrichSources.innerHTML = parts.length ? parts.join(' · ') : '暂无公开信号（可手动填写）';
+    }
+
+    if (el.enrichNoteBox) {
+      el.enrichNoteBox.textContent = v.is_manual
+        ? '已启用人工修正。改字段后点「保存修正」会覆盖分析/邮件用词；点「恢复自动」可退回自动结果。'
+        : '自动背调可能出错：可直接改字段后「保存修正」。修正会覆盖分析与邮件用词，并标记「已人工修正」。';
+    }
+  }
+
+  function saveEnrichmentFromForm(lead) {
+    if (!lead) return null;
+    const manual = {
+      company: (el.enrichCompany && el.enrichCompany.value || '').trim(),
+      website: (el.enrichWebsite && el.enrichWebsite.value || '').trim(),
+      industry: (el.enrichIndustry && el.enrichIndustry.value || '').trim(),
+      target: (el.enrichTarget && el.enrichTarget.value) || '',
+      summary: (el.enrichSummary && el.enrichSummary.value || '').trim(),
+      note: (el.enrichNote && el.enrichNote.value || '').trim(),
+      saved_at: new Date().toISOString()
+    };
+    lead.enrichment_manual = manual;
+    if (manual.company) lead.company = manual.company;
+    // 供研判/邮件使用的目标客群覆盖
+    lead.enrichment_override = {
+      is_likely_target: manual.target === 'yes' ? true : manual.target === 'no' ? false : null,
+      industry: manual.industry,
+      website: manual.website
+    };
+    persistLeadMutation(lead);
+    renderEnrichment(lead);
+    showToast('背调修正已保存，并覆盖后续分析', 'success');
+    return manual;
+  }
+
+  function bindEnrichEvents() {
+    if (el.btnEnrichNow) {
+      el.btnEnrichNow.addEventListener('click', async () => {
+        if (!currentEmailLead) return;
+        await runEnrichment(currentEmailLead);
+      });
+    }
+    if (el.btnEnrichSave) {
+      el.btnEnrichSave.addEventListener('click', () => {
+        if (!currentEmailLead) return;
+        saveEnrichmentFromForm(currentEmailLead);
+      });
+    }
+    if (el.btnEnrichReset) {
+      el.btnEnrichReset.addEventListener('click', () => {
+        if (!currentEmailLead) return;
+        delete currentEmailLead.enrichment_manual;
+        delete currentEmailLead.enrichment_override;
+        persistLeadMutation(currentEmailLead);
+        renderEnrichment(currentEmailLead);
+        showToast('已恢复自动背调结果', 'info');
+      });
+    }
+  }
+
   function bindAuthEvents() {
     if (el.btnSaveHubToken) {
       el.btnSaveHubToken.addEventListener('click', async () => {
@@ -493,6 +670,7 @@
     bindAuthEvents();
     bindToolbarEvents();
     bindBatchEvents();
+    bindEnrichEvents();
 
     // 一键开通链接：#t=TOKEN 自动入账，无需手动粘贴
     const enrolled = tryEnrollFromUrl();
@@ -661,6 +839,10 @@
               }
             } catch (e) {}
             openEmailModal(res.lead.id);
+            // 入库后自动背调（可在工作台修正）
+            if (res.lead && window.syncService) {
+              runEnrichment(res.lead, { silent: true });
+            }
           }
         } catch (err) {
           console.error('Paste lead error:', err);
@@ -1160,6 +1342,19 @@
 
     const card = window.InquiryResponder.buildDecisionCard(lead, currentEmailAnalysis);
     renderDecisionCard(card, validity, intent);
+
+    // 背调：已有则展示，没有则自动跑（可人工修正）
+    renderEnrichment(lead);
+    if (!lead.enrichment && !lead.enrichment_manual) {
+      runEnrichment(lead, { silent: true }).then(() => {
+        if (currentEmailLead && currentEmailLead.id === lead.id) {
+          const analysis2 = window.InquiryResponder.analyzeLead(lead);
+          analysis2.validity = validity;
+          const card2 = window.InquiryResponder.buildDecisionCard(lead, analysis2);
+          renderDecisionCard(card2, validity, intent);
+        }
+      });
+    }
 
     // 标题与分级 chip
     const gradeChip = document.getElementById('emailModalGradeChip');

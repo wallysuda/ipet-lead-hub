@@ -192,6 +192,56 @@
       <!-- 销售决策卡 -->
       <div class="decision-card" id="decisionCard"></div>
 
+      <!-- 自动背调结果（可修正 / 可重查） -->
+      <div class="enrich-panel" id="enrichPanel">
+        <div class="enrich-head">
+          <div class="enrich-title">
+            公司自动背调
+            <span class="enrich-badge low" id="enrichConfidence">未背调</span>
+            <span class="enrich-badge manual" id="enrichManualBadge" hidden>已人工修正</span>
+          </div>
+          <div class="enrich-actions">
+            <button class="btn btn-xs btn-outline" id="btnEnrichNow" title="重新抓取官网/公开信号">重新背调</button>
+            <button class="btn btn-xs btn-outline" id="btnEnrichReset" title="放弃人工修正，恢复自动结果">恢复自动</button>
+            <button class="btn btn-xs btn-primary" id="btnEnrichSave" title="保存修正并覆盖分析使用的背调字段">保存修正</button>
+          </div>
+        </div>
+        <div class="enrich-grid">
+          <div class="enrich-field">
+            <label>公司名称（可改）</label>
+            <input id="enrichCompany" type="text" placeholder="自动识别 / 人工修正">
+          </div>
+          <div class="enrich-field">
+            <label>官网</label>
+            <input id="enrichWebsite" type="text" placeholder="https://">
+          </div>
+          <div class="enrich-field">
+            <label>行业判断（可改）</label>
+            <input id="enrichIndustry" type="text" placeholder="无人机 / 电子 / 消费级…">
+          </div>
+          <div class="enrich-field">
+            <label>是否目标客群</label>
+            <select id="enrichTarget">
+              <option value="">未判定</option>
+              <option value="yes">是 · 工业无人机相关</option>
+              <option value="no">否 · 非目标</option>
+            </select>
+          </div>
+          <div class="enrich-field full">
+            <label>背调摘要（自动，可改）</label>
+            <textarea id="enrichSummary" rows="3" placeholder="自动摘要 / 人工修正"></textarea>
+          </div>
+          <div class="enrich-field full">
+            <label>人工备注（错误纠正、线索来源）</label>
+            <textarea id="enrichNote" rows="2" placeholder="例如：搜到的是同名公司，正确官网是…"></textarea>
+          </div>
+        </div>
+        <div class="enrich-sources" id="enrichSources">暂无公开信号</div>
+        <div class="enrich-note" id="enrichNoteBox">
+          自动背调可能出错：可直接改字段后「保存修正」。修正会覆盖分析与邮件用词，并标记「已人工修正」。
+        </div>
+      </div>
+
       <!-- 左右双栏工作区 -->
       <div class="email-modal-grid">
         <!-- 左栏：策略切角与主题行 -->

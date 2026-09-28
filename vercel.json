@@ -41,6 +41,10 @@
       "dest": "/api/ingest.js"
     },
     {
+      "src": "/api/enrich",
+      "dest": "/api/enrich.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }
