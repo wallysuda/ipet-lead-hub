@@ -47,6 +47,7 @@
     btnCopyEmail: document.getElementById('btnCopyEmail'),
     btnOpenMailto: document.getElementById('btnOpenMailto'),
     btnMarkPass: document.getElementById('btnMarkPass'),
+    btnMarkFollowed: document.getElementById('btnMarkFollowed'),
 
     // Toasts
     toastContainer: document.getElementById('toastContainer'),
@@ -76,8 +77,11 @@
     funnelTotal: document.getElementById('funnelTotal'),
     funnelT1: document.getElementById('funnelT1'),
     funnelT2: document.getElementById('funnelT2'),
+    funnelT3: document.getElementById('funnelT3'),
+    funnelOther: document.getElementById('funnelOther'),
     funnelEmailed: document.getElementById('funnelEmailed'),
-    funnelFollowed: document.getElementById('funnelFollowed')
+    funnelFollowed: document.getElementById('funnelFollowed'),
+    funnelPassed: document.getElementById('funnelPassed')
   };
 
   function updateBatchBar() {
@@ -92,15 +96,27 @@
   function updateFunnel(leads) {
     const list = (leads || []).filter(l => !l.deleted_at);
     const grades = list.map(l => resolveIntentGrade(l));
-    const g5 = grades.filter(g => g.code === 'G5_RRFQ').length;
-    const g4 = grades.filter(g => g.code === 'G4_SPEC').length;
-    const emailed = list.filter(l => l.email_generated_at || l.status === 'emailed').length;
+    const count = (codes) => grades.filter(g => codes.includes(g.code)).length;
+    const g5 = count(['G5_RRFQ']);
+    const g4 = count(['G4_SPEC']);
+    const g3 = count(['G3_NURTURE']);
+    const other = count(['G0_PASS', 'G1_DECLINE', 'G2_SUPPLIER']);
+
+    // 已出邮件草稿：生成过邮件正文（打开工作台出稿）
+    const drafted = list.filter(l => l.email_generated_at || l.draft_generated_at || l.status === 'emailed').length;
+    // 已跟进：复制/发送后点「已跟进」，或批量标记
     const followed = list.filter(l => l.status === 'followed_up' || l.followed_up_at).length;
+    // 已 Pass 归档
+    const passed = list.filter(l => l.status === 'passed' || l.passed_at).length;
+
     if (el.funnelTotal) el.funnelTotal.textContent = String(list.length);
     if (el.funnelT1) el.funnelT1.textContent = String(g5);
     if (el.funnelT2) el.funnelT2.textContent = String(g4);
-    if (el.funnelEmailed) el.funnelEmailed.textContent = String(emailed);
+    if (el.funnelT3) el.funnelT3.textContent = String(g3);
+    if (el.funnelOther) el.funnelOther.textContent = String(other);
+    if (el.funnelEmailed) el.funnelEmailed.textContent = String(drafted);
     if (el.funnelFollowed) el.funnelFollowed.textContent = String(followed);
+    if (el.funnelPassed) el.funnelPassed.textContent = String(passed);
   }
 
   /** 统一取 G0–G5（缓存到 lead 上，避免反复重算） */
@@ -1330,7 +1346,14 @@
         if (!assertOutboundReady()) return;
         const text = `Subject: ${selectedSubjectText}\n\n${el.emailBodyTextarea.value}`;
         navigator.clipboard.writeText(text).then(() => {
-          showToast('纯英文跟进邮件（包含主题行）已复制到剪贴板', 'success');
+          if (currentEmailLead) {
+            currentEmailLead.draft_generated_at = new Date().toISOString();
+            currentEmailLead.subject_used = selectedSubjectText;
+            currentEmailLead.strategy_id = selectedStrategyId;
+            persistLeadMutation(currentEmailLead);
+            refreshVisibleTable();
+          }
+          showToast('主题与正文已复制。发给客户后请点「已跟进」', 'success');
         });
       });
     }
@@ -1343,12 +1366,26 @@
         currentEmailLead.passed_at = new Date().toISOString();
         persistLeadMutation(currentEmailLead);
         if (window.syncService && window.syncService.deleteLead) {
-          // 软删除归档，保留墓碑
           await window.syncService.deleteLead(currentEmailLead.id);
         }
         showToast('已标记 Pass 并归档，不生成外发邮件', 'success');
         if (el.modalEmail) el.modalEmail.classList.remove('active');
         refreshVisibleTable();
+      });
+    }
+
+    if (el.btnMarkFollowed) {
+      el.btnMarkFollowed.addEventListener('click', () => {
+        if (!currentEmailLead) return;
+        const ts = new Date().toISOString();
+        currentEmailLead.status = 'followed_up';
+        currentEmailLead.followed_up_at = ts;
+        currentEmailLead.strategy_id = selectedStrategyId || currentEmailLead.strategy_id;
+        currentEmailLead.subject_used = selectedSubjectText || currentEmailLead.subject_used;
+        persistLeadMutation(currentEmailLead);
+        showToast('已标记「已跟进」，漏斗进度已更新', 'success');
+        refreshVisibleTable();
+        if (el.modalEmail) el.modalEmail.classList.remove('active');
       });
     }
 
@@ -1362,7 +1399,11 @@
         const to = currentEmailLead.email;
         const subj = encodeURIComponent(selectedSubjectText);
         const body = encodeURIComponent(el.emailBodyTextarea.value);
+        currentEmailLead.draft_generated_at = new Date().toISOString();
+        persistLeadMutation(currentEmailLead);
         window.open(`mailto:${to}?subject=${subj}&body=${body}`, '_blank');
+        showToast('已打开邮件客户端。发出后回来点「已跟进」', 'info');
+        refreshVisibleTable();
       });
     }
   }

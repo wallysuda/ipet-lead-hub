@@ -87,17 +87,27 @@
       </div>
     </div>
 
-    <!-- 漏斗统计 -->
-    <section class="funnel-bar" id="funnelBar">
-      <div class="funnel-item"><span class="funnel-label">线索总量</span><strong id="funnelTotal">0</strong></div>
-      <div class="funnel-arrow">→</div>
-      <div class="funnel-item"><span class="funnel-label">G5 热商机</span><strong id="funnelT1">0</strong></div>
-      <div class="funnel-arrow">→</div>
-      <div class="funnel-item"><span class="funnel-label">G4 规格推进</span><strong id="funnelT2">0</strong></div>
-      <div class="funnel-arrow">→</div>
-      <div class="funnel-item"><span class="funnel-label">已生成邮件</span><strong id="funnelEmailed">0</strong></div>
-      <div class="funnel-arrow">→</div>
-      <div class="funnel-item"><span class="funnel-label">已跟进</span><strong id="funnelFollowed">0</strong></div>
+    <!-- 漏斗统计：分级结构 + 跟进进度 -->
+    <section class="funnel-bar" id="funnelBar" title="分级=当前有效线索结构；进度=跟进动作口径">
+      <div class="funnel-group">
+        <div class="funnel-item"><span class="funnel-label">线索总量</span><strong id="funnelTotal">0</strong></div>
+        <div class="funnel-arrow">→</div>
+        <div class="funnel-item"><span class="funnel-label">G5 热商机</span><strong id="funnelT1">0</strong></div>
+        <div class="funnel-arrow">→</div>
+        <div class="funnel-item"><span class="funnel-label">G4 规格</span><strong id="funnelT2">0</strong></div>
+        <div class="funnel-arrow">→</div>
+        <div class="funnel-item"><span class="funnel-label">G3 培育</span><strong id="funnelT3">0</strong></div>
+        <div class="funnel-arrow">→</div>
+        <div class="funnel-item"><span class="funnel-label">G0-G2 非买家</span><strong id="funnelOther">0</strong></div>
+      </div>
+      <div class="funnel-sep"></div>
+      <div class="funnel-group">
+        <div class="funnel-item" title="打开过邮件工作台并生成过正文（含拒绝/补参）"><span class="funnel-label">已出邮件草稿</span><strong id="funnelEmailed">0</strong></div>
+        <div class="funnel-arrow">→</div>
+        <div class="funnel-item" title="复制/发送后点击「已跟进」，或批量标记已跟进"><span class="funnel-label">已跟进</span><strong id="funnelFollowed">0</strong></div>
+        <div class="funnel-arrow">→</div>
+        <div class="funnel-item" title="标记 Pass 并归档，不外发"><span class="funnel-label">已 Pass 归档</span><strong id="funnelPassed">0</strong></div>
+      </div>
     </section>
 
     <!-- 批量操作条 -->
@@ -193,6 +203,7 @@
 
       <div class="modal-footer">
         <button class="btn btn-outline btn-danger-text" id="btnMarkPass" title="判定为无效询盘，归档且不外发">标记 Pass</button>
+        <button class="btn btn-outline" id="btnMarkFollowed" title="已复制/发送给客户后，标记为已跟进（计入漏斗）">已跟进</button>
         <button class="btn btn-secondary" id="btnOpenMailto">客户端发送</button>
         <button class="btn btn-primary" id="btnCopyEmail">复制完整主题与正文</button>
         <button class="btn btn-outline" data-close="modalEmail">关闭</button>
