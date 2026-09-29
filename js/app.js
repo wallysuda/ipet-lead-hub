@@ -296,7 +296,7 @@
     const thread = (lead && lead.email_thread) || [];
     if (el.replyCount) el.replyCount.textContent = thread.length + ' 条';
     if (!thread.length) {
-      el.replyList.innerHTML = '暂无客户回复记录。点「收信」从腾讯企业邮拉取，或手动粘贴一封。';
+      el.replyList.innerHTML = '暂无客户回复记录。仅显示匹配到本线索的回复摘要（非整个收件箱）。';
       return;
     }
     el.replyList.innerHTML = thread.slice().reverse().map(r => `

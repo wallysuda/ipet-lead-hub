@@ -71,8 +71,7 @@ module.exports = async (req, res) => {
         date: new Date().toISOString(),
         from: body.reply_from || lead.email || 'manual',
         subject: body.reply_subject || 'Manual reply note',
-        body: String(body.reply_text).slice(0, 4000),
-        snippet: String(body.reply_text).replace(/\s+/g, ' ').slice(0, 240),
+        snippet: String(body.reply_text).replace(/\s+/g, ' ').slice(0, 180),
         source: 'manual'
       };
       lead.email_thread = (lead.email_thread || []).concat(entry);
@@ -112,12 +111,12 @@ module.exports = async (req, res) => {
       const exists = thread.some(t => t.snippet === m.snippet && t.date === m.date);
       if (exists) continue;
 
+      // 仅存短摘要，不落整封原文到共享线索库
       thread.push({
         date: m.date,
         from: item.from,
         subject: m.subject,
-        body: m.body,
-        snippet: m.snippet,
+        snippet: String(m.snippet || m.body || '').replace(/\s+/g, ' ').slice(0, 180),
         source: 'imap'
       });
       lead.email_thread = thread;
@@ -134,12 +133,9 @@ module.exports = async (req, res) => {
       fetched: messages.length,
       matched: matched.length,
       updated,
-      unmatched: unmatched.slice(0, 10).map(u => ({
-        from: u.from,
-        subject: u.message.subject,
-        snippet: u.message.snippet
-      })),
-      note: '回复已写入线索 email_thread / last_reply_*'
+      // 隐私：不返回未匹配邮件的发件人/主题/摘要，仅给数量
+      unmatched_count: unmatched.length,
+      note: '仅写入已匹配线索的回复短摘要；未匹配邮件不入库、不外泄正文'
     });
   } catch (err) {
     console.error('mail api error', err);
