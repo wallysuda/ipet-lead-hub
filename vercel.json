@@ -45,6 +45,10 @@
       "dest": "/api/enrich.js"
     },
     {
+      "src": "/api/mail",
+      "dest": "/api/mail.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }

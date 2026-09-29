@@ -68,6 +68,11 @@
     leadTierFilter: document.getElementById('leadTierFilter'),
     leadSortSelect: document.getElementById('leadSortSelect'),
     btnExportCsv: document.getElementById('btnExportCsv'),
+    btnMailSync: document.getElementById('btnMailSync'),
+    btnMailSyncInModal: document.getElementById('btnMailSyncInModal'),
+    btnReplyManual: document.getElementById('btnReplyManual'),
+    replyList: document.getElementById('replyList'),
+    replyCount: document.getElementById('replyCount'),
     btnCopyEnrollLink: document.getElementById('btnCopyEnrollLink'),
 
     // Batch + funnel
@@ -278,6 +283,93 @@
     showToast(`已导出 ${rows.length} 条线索`, 'success');
   }
 
+  // ========== 客户回复闭环 ==========
+  function authHeaders(extra = {}) {
+    const token = (typeof window !== 'undefined' && window.IPET_HUB_TOKEN) ||
+                  (typeof localStorage !== 'undefined' && localStorage.getItem('IPET_HUB_TOKEN')) ||
+                  '';
+    return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
+  }
+
+  function renderReplies(lead) {
+    if (!el.replyList) return;
+    const thread = (lead && lead.email_thread) || [];
+    if (el.replyCount) el.replyCount.textContent = thread.length + ' 条';
+    if (!thread.length) {
+      el.replyList.innerHTML = '暂无客户回复记录。点「收信」从腾讯企业邮拉取，或手动粘贴一封。';
+      return;
+    }
+    el.replyList.innerHTML = thread.slice().reverse().map(r => `
+      <div class="reply-item">
+        <div class="meta">${escapeHtml(r.date || '')} · ${escapeHtml(r.from || '')} · ${escapeHtml(r.source || 'imap')}</div>
+        <div>${escapeHtml(r.snippet || String(r.body || '').slice(0, 160))}</div>
+      </div>
+    `).join('');
+  }
+
+  async function syncMailReplies() {
+    try {
+      if (el.btnMailSync) el.btnMailSync.disabled = true;
+      showToast('正在从企业邮拉取客户回复...', 'info');
+      const res = await fetch('/api/mail', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ action: 'sync' })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || ('HTTP ' + res.status));
+      }
+      showToast(`收信完成：匹配 ${data.matched || 0} 条，更新 ${data.updated || 0} 条线索`, 'success');
+      if (window.syncService) await window.syncService.syncWithCloud();
+      refreshVisibleTable();
+      if (currentEmailLead) {
+        const fresh = (window.syncService.getAllLeads() || []).find(l => l.id === currentEmailLead.id) || currentEmailLead;
+        currentEmailLead = fresh;
+        renderReplies(fresh);
+      }
+    } catch (e) {
+      showToast('收信失败: ' + e.message, 'error');
+    } finally {
+      if (el.btnMailSync) el.btnMailSync.disabled = false;
+    }
+  }
+
+  function bindMailEvents() {
+    if (el.btnMailSync) el.btnMailSync.addEventListener('click', syncMailReplies);
+    if (el.btnMailSyncInModal) el.btnMailSyncInModal.addEventListener('click', syncMailReplies);
+    if (el.btnReplyManual) {
+      el.btnReplyManual.addEventListener('click', async () => {
+        if (!currentEmailLead) return;
+        const text = prompt('粘贴客户回复正文（将记入该线索）');
+        if (!text || !text.trim()) return;
+        try {
+          const res = await fetch('/api/mail', {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              lead_id: currentEmailLead.id,
+              reply_text: text.trim(),
+              reply_from: currentEmailLead.email || 'manual'
+            })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error || 'save failed');
+          showToast('已记入客户回复', 'success');
+          if (window.syncService) await window.syncService.syncWithCloud();
+          const fresh = (window.syncService.getAllLeads() || []).find(l => l.id === currentEmailLead.id);
+          if (fresh) {
+            currentEmailLead = fresh;
+            renderReplies(fresh);
+          }
+          refreshVisibleTable();
+        } catch (e) {
+          showToast('记录失败: ' + e.message, 'error');
+        }
+      });
+    }
+  }
+
   function bindToolbarEvents() {
     const onChange = () => refreshVisibleTable();
     if (el.leadSearchInput) el.leadSearchInput.addEventListener('input', onChange);
@@ -485,6 +577,7 @@
       }
       persistLeadMutation(lead);
       renderEnrichment(lead);
+    renderReplies(lead);
       if (!options.silent) showToast('自动背调完成，可核对后保存修正', 'success');
       return data.enrichment;
     } catch (e) {
@@ -676,6 +769,7 @@
     bindToolbarEvents();
     bindBatchEvents();
     bindEnrichEvents();
+    bindMailEvents();
 
     // 一键开通链接：#t=TOKEN 自动入账，无需手动粘贴
     const enrolled = tryEnrollFromUrl();

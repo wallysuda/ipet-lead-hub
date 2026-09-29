@@ -4,7 +4,7 @@
   "description": "IPET SYSTEM Standalone Lead Assets Hub - Universal Multi-Channel Ingestion & AI Intent Tiering",
   "main": "index.html",
   "scripts": {
-    "test": "node tests/test_security.js && node tests/test_lead_store.js && node tests/test_parse_accuracy.js && node tests/test_email_quality.js && node tests/test_email_matrix.js && node tests/test_normalizer.js",
+    "test": "node tests/test_security.js && node tests/test_lead_store.js && node tests/test_parse_accuracy.js && node tests/test_email_quality.js && node tests/test_email_matrix.js && node tests/test_mail_match.js && node tests/test_normalizer.js",
     "test:security": "node tests/test_security.js",
     "test:store": "node tests/test_lead_store.js",
     "test:normalizer": "node tests/test_normalizer.js",
@@ -19,5 +19,8 @@
   ],
   "author": "IPET SYSTEM",
   "license": "UNLICENSED",
-  "devDependencies": {}
+  "devDependencies": {},
+  "dependencies": {
+    "imapflow": "^1.0.168"
+  }
 }

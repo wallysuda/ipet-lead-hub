@@ -1585,3 +1585,36 @@ body.modal-open {
   0% { background: #fef9c3; }
   100% { background: #fff; }
 }
+
+/* --- Reply loop panel --- */
+.reply-panel {
+  margin-top: 10px;
+  padding: 12px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+}
+
+.reply-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-main);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.reply-item {
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  line-height: 1.45;
+}
+
+.reply-item .meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}

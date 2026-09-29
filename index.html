@@ -88,6 +88,7 @@
           <option value="company_asc">按公司名</option>
         </select>
         <button class="btn btn-xs btn-outline" id="btnExportCsv" title="导出当前筛选结果为 CSV">导出 CSV</button>
+        <button class="btn btn-xs btn-outline" id="btnMailSync" title="从腾讯企业邮 IMAP 抓取客户回复并匹配线索">收客户回复</button>
         <span id="reevaluateStatus" class="reevaluate-status"></span>
         <button class="btn btn-xs btn-outline" id="btnReevaluateAllJev" title="增量重研判（仅更新过期/缺失/文本变更线索）。Shift+点击 = 强制全量重新研判。">
           重新研判 (增量)
@@ -250,6 +251,21 @@
         <div class="enrich-note" id="enrichNoteBox">
           自动背调可能出错：可直接改字段后「保存修正」。修正会覆盖分析与邮件用词，并标记「已人工修正」。
         </div>
+      </div>
+
+      <!-- 客户回复闭环 -->
+      <div class="reply-panel" id="replyPanel">
+        <div class="enrich-head">
+          <div class="enrich-title">
+            客户回复闭环
+            <span class="enrich-badge medium" id="replyCount">0 条</span>
+          </div>
+          <div class="enrich-actions">
+            <button class="btn btn-xs btn-outline" id="btnMailSyncInModal">收信</button>
+            <button class="btn btn-xs btn-outline" id="btnReplyManual">手动记回复</button>
+          </div>
+        </div>
+        <div class="reply-list" id="replyList">暂无客户回复记录。点「收信」从腾讯企业邮拉取，或手动粘贴一封。</div>
       </div>
 
       <!-- 左右双栏工作区 -->
