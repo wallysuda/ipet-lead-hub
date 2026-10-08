@@ -143,9 +143,9 @@ function callGemini(modelName, apiKey, prompt) {
     });
 
     req.on('error', reject);
-    req.setTimeout(14000, () => {
+    req.setTimeout(50000, () => {
       req.destroy();
-      reject(new Error('Gemini API timeout after 14s'));
+      reject(new Error('Gemini API timeout after 50s'));
     });
 
     req.write(payload);
