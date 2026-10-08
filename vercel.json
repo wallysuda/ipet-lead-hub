@@ -49,6 +49,10 @@
       "dest": "/api/mail.js"
     },
     {
+      "src": "/api/analyze",
+      "dest": "/api/analyze.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }
