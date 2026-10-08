@@ -108,7 +108,7 @@ function callGemini(modelName, apiKey, prompt) {
       ],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 2048
+        maxOutputTokens: 4096
       }
     });
 
@@ -163,7 +163,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       status: 'online',
       service: 'IPET Lead Hub · Gemini Flash Intelligent Inquiry Responder',
-      model: 'gemini-3.1-flash-lite',
+      model: 'gemini-3.5-flash',
       pricing: 'Free Tier ($0.00)',
       api_key_configured: !!getGeminiKey()
     });
@@ -219,10 +219,13 @@ module.exports = async (req, res) => {
 
     const fullPrompt = `${SYSTEM_INSTRUCTION}\n\n${buildUserPrompt(lead, webContext)}`;
 
-    // Try gemini-3.1-flash-lite first (fastest, high quality, free tier), fallback to gemini-3-flash-preview
-    let callRes = await callGemini('models/gemini-3.1-flash-lite', apiKey, fullPrompt);
+    // Prioritize gemini-3.5-flash for deep reasoning and North American engineering authority
+    let callRes = await callGemini('models/gemini-3.5-flash', apiKey, fullPrompt);
     if (!callRes.ok) {
       callRes = await callGemini('models/gemini-3-flash-preview', apiKey, fullPrompt);
+    }
+    if (!callRes.ok) {
+      callRes = await callGemini('models/gemini-3.1-flash-lite', apiKey, fullPrompt);
     }
 
     if (!callRes.ok || !callRes.text) {
@@ -243,6 +246,7 @@ module.exports = async (req, res) => {
       web_context: webContext,
       parsed: {
         persona: parsed.persona,
+        core_pain_points: parsed.core_pain_points,
         subjects: parsed.subjects,
         email_body: parsed.email_body,
         chinese_brief: parsed.chinese_brief,

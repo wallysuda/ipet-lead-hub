@@ -1700,7 +1700,7 @@
     renderEmailSubjects(subjects);
   }
 
-  function renderEmailSubjects(subjects) {
+  function renderEmailSubjects(subjects, isAi = false) {
     if (!el.emailSubjectList) return;
     el.emailSubjectList.innerHTML = '';
 
@@ -1722,14 +1722,28 @@
         el.emailSubjectList.querySelectorAll('.subject-item').forEach(i => i.classList.remove('selected'));
         item.classList.add('selected');
         item.querySelector('input').checked = true;
-        updateEmailBody(subj.text);
+        selectedSubjectText = subj.text;
+        if (currentEmailLead) {
+          currentEmailLead.subject_used = subj.text;
+          persistLeadMutation(currentEmailLead);
+        }
+        if (!isAi) {
+          updateEmailBody(subj.text);
+        }
       });
 
       el.emailSubjectList.appendChild(item);
     });
 
     if (subjects.length > 0) {
-      updateEmailBody(subjects[0].text);
+      selectedSubjectText = subjects[0].text;
+      if (currentEmailLead) {
+        currentEmailLead.subject_used = subjects[0].text;
+        persistLeadMutation(currentEmailLead);
+      }
+      if (!isAi) {
+        updateEmailBody(subjects[0].text);
+      }
     }
   }
 
@@ -1927,23 +1941,23 @@
   function applyAiAnalysisToModal(lead, ai) {
     if (!ai) return;
 
-    // 1. 注入推荐邮件主题行
+    // 1. 注入推荐邮件主题行 (isAi = true, 防止旧模板引擎覆盖 AI 正文)
     if (Array.isArray(ai.subjects) && ai.subjects.length > 0) {
       const subjectObjs = ai.subjects.map((s, idx) => ({
         text: s,
         label: idx === 0 ? '官方回执 (首选)' : idx === 1 ? '自然跟进' : '项目对标',
         charCount: s.length
       }));
-      renderEmailSubjects(subjectObjs);
+      renderEmailSubjects(subjectObjs, true);
     }
 
-    // 2. 注入纯英文正文
+    // 2. 注入纯英文工程正文
     if (ai.email_body && el.emailBodyTextarea) {
       el.emailBodyTextarea.value = ai.email_body;
       updateEmailLenMeta(ai.email_body);
     }
 
-    // 3. 增强决策卡：展示 AI 深度洞察与跟进备忘
+    // 3. 增强决策卡：展示 AI 深度画像、底层工程物理约束、中文释义与二次跟进预案
     const host = document.getElementById('decisionCard');
     if (host) {
       const old = host.querySelector('.ai-decision-block');
@@ -1951,20 +1965,45 @@
 
       const aiBlock = document.createElement('div');
       aiBlock.className = 'dc-block ai-decision-block';
-      aiBlock.style.borderLeft = '3px solid var(--primary-accent, #3b82f6)';
-      aiBlock.style.background = 'rgba(79, 126, 248, 0.05)';
-      aiBlock.style.padding = '8px 12px';
-      aiBlock.style.borderRadius = '4px';
-      aiBlock.style.marginTop = '8px';
-      aiBlock.innerHTML = `
-        <div class="dc-label" style="color:var(--primary-accent, #3b82f6); font-weight:600;">AI 深度画像透视 (Gemini Flash 0元)</div>
-        <div class="dc-value" style="font-size:12px; line-height:1.6;">
-          <strong>客群画像：</strong>${escapeHtml(ai.persona || '-')}<br>
-          <strong>中文参考：</strong>${escapeHtml(ai.chinese_brief || '-')}<br>
-          <strong style="color:var(--text-accent, #eab308);">跟进预案：</strong>${escapeHtml(ai.follow_up_notes || '-')}
+      aiBlock.style.borderLeft = '3px solid #10b981';
+      aiBlock.style.background = 'rgba(16, 185, 129, 0.05)';
+      aiBlock.style.padding = '12px 14px';
+      aiBlock.style.borderRadius = '6px';
+      aiBlock.style.marginTop = '10px';
+
+      const painPointsHtml = ai.core_pain_points ? `
+        <div style="margin-top:8px; padding:8px 10px; background:rgba(0,0,0,0.18); border-radius:4px; font-family:var(--font-mono); font-size:11.5px; color:#e2e8f0; white-space:pre-wrap; line-height:1.6;">
+          <strong style="color:#60a5fa;">⚙️ 底层物理与核心工程痛点：</strong>\n${escapeHtml(ai.core_pain_points)}
         </div>
+      ` : '';
+
+      aiBlock.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div class="dc-label" style="color:#10b981; font-weight:700; font-size:12px; display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
+            AI 深度工程研判全景 (Gemini Flash · 纯正北美工程水准)
+          </div>
+          <button type="button" class="btn btn-xs btn-outline" id="btnToggleAiMarkdown" style="font-size:10px; padding:2px 8px; cursor:pointer;">查看完整研判报告</button>
+        </div>
+        <div class="dc-value" style="font-size:12px; line-height:1.6;">
+          <div><strong style="color:var(--text-main);">🎯 客群画像透视：</strong>${escapeHtml(ai.persona || '-')}</div>
+          ${painPointsHtml}
+          <div style="margin-top:6px;"><strong style="color:var(--text-main);">📝 邮件中文释义：</strong>${escapeHtml(ai.chinese_brief || '-')}</div>
+          <div style="margin-top:6px;"><strong style="color:#f59e0b;">📋 跟进预案与二次触达：</strong>${escapeHtml(ai.follow_up_notes || '-')}</div>
+        </div>
+        <div id="aiFullMarkdownViewer" style="display:none; margin-top:10px; padding:10px 12px; background:var(--bg-main); border:1px solid var(--border-color); border-radius:4px; font-family:var(--font-mono); font-size:11px; white-space:pre-wrap; max-height:280px; overflow-y:auto; color:var(--text-muted); line-height:1.5;">${escapeHtml(ai.raw_markdown || lead.ai_raw_markdown || '')}</div>
       `;
       host.appendChild(aiBlock);
+
+      const btnToggle = aiBlock.querySelector('#btnToggleAiMarkdown');
+      const markdownViewer = aiBlock.querySelector('#aiFullMarkdownViewer');
+      if (btnToggle && markdownViewer) {
+        btnToggle.addEventListener('click', () => {
+          const isHidden = markdownViewer.style.display === 'none';
+          markdownViewer.style.display = isHidden ? 'block' : 'none';
+          btnToggle.textContent = isHidden ? '收起研判报告' : '查看完整研判报告';
+        });
+      }
     }
   }
 
