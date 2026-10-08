@@ -594,12 +594,35 @@
     }
   }
 
+  function sanitizeWebsiteUrl(url) {
+    if (!url) return '';
+    const s = String(url).toLowerCase().trim();
+    if (
+      s.includes('accounts.google.com') ||
+      s.includes('mail.google.com') ||
+      s.includes('login.live.com') ||
+      s.includes('login.microsoftonline.com') ||
+      s.includes('signin') ||
+      s.includes('mail.qq.com') ||
+      s.includes('mail.163.com') ||
+      s.includes('facebook.com/login') ||
+      s.includes('linkedin.com/login') ||
+      s.includes('gmail.com') ||
+      s.includes('outlook.com') ||
+      s.includes('hotmail.com') ||
+      s.includes('yahoo.com')
+    ) {
+      return '';
+    }
+    return url;
+  }
+
   function currentEnrichView(lead) {
     const auto = lead.enrichment || lead.enrichment_auto || {};
     const manual = lead.enrichment_manual || {};
     return {
       company: manual.company || lead.company || auto.query_company || '',
-      website: manual.website || (auto.website && auto.website.url) || '',
+      website: sanitizeWebsiteUrl(manual.website || (auto.website && auto.website.url) || ''),
       industry: manual.industry || (auto.industry_guess || []).join(' / ') || '',
       target: manual.target != null && manual.target !== ''
         ? manual.target

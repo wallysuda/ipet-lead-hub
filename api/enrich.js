@@ -78,10 +78,49 @@ function pickMeta(html, patterns) {
   return '';
 }
 
+const PUBLIC_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'googlemail.com', 'google.com',
+  'yahoo.com', 'ymail.com', 'rocketmail.com',
+  'hotmail.com', 'outlook.com', 'live.com', 'msn.com',
+  'icloud.com', 'me.com', 'mac.com',
+  'qq.com', '163.com', '126.com', 'yeah.net', 'sina.com', 'sina.cn', 'sohu.com', 'foxmail.com', 'aliyun.com',
+  'proton.me', 'protonmail.com', 'zoho.com', 'zohomail.com', 'mail.ru', 'yandex.com', 'yandex.ru',
+  'gmx.com', 'gmx.de', 'gmx.net', 'web.de', 't-online.de',
+  'aol.com', 'comcast.net', 'att.net', 'verizon.net', 'sbcglobal.net',
+  'mail.com', 'inbox.com', 'fastmail.com'
+]);
+
+function isPublicEmailDomain(domain) {
+  if (!domain) return false;
+  return PUBLIC_EMAIL_DOMAINS.has(String(domain).toLowerCase().trim());
+}
+
+function isInvalidWebsiteUrl(url) {
+  if (!url) return true;
+  const s = String(url).toLowerCase();
+  return (
+    s.includes('accounts.google.com') ||
+    s.includes('mail.google.com') ||
+    s.includes('login.live.com') ||
+    s.includes('login.microsoftonline.com') ||
+    s.includes('signin') ||
+    s.includes('mail.qq.com') ||
+    s.includes('mail.163.com') ||
+    s.includes('facebook.com/login') ||
+    s.includes('linkedin.com/login') ||
+    s.includes('gmail.com') ||
+    s.includes('outlook.com') ||
+    s.includes('hotmail.com') ||
+    s.includes('yahoo.com')
+  );
+}
+
 function domainFromEmail(email) {
   const e = String(email || '').trim().toLowerCase();
   if (!e.includes('@')) return '';
-  return e.split('@')[1] || '';
+  const domain = e.split('@')[1] || '';
+  if (isPublicEmailDomain(domain)) return '';
+  return domain;
 }
 
 function guessIndustryBlob(blob) {
@@ -137,7 +176,7 @@ async function duckDuckGo(query) {
 }
 
 async function inspectWebsite(domain) {
-  if (!domain) return null;
+  if (!domain || isPublicEmailDomain(domain)) return null;
   const candidates = [
     `https://${domain}`,
     `https://www.${domain}`,
@@ -146,6 +185,9 @@ async function inspectWebsite(domain) {
   for (const url of candidates) {
     const res = await fetchUrl(url, 5500, 80000);
     if (!res.ok || !res.body) continue;
+    const finalUrl = res.finalUrl || url;
+    if (isInvalidWebsiteUrl(finalUrl)) continue; // 坚决丢弃登录重定向链接
+
     const html = res.body;
     const title = pickMeta(html, [
       /<title[^>]*>([\s\S]*?)<\/title>/i,
@@ -158,14 +200,14 @@ async function inspectWebsite(domain) {
     const bodyText = stripTags(html).slice(0, 4000);
     return {
       domain,
-      url: res.finalUrl || url,
+      url: finalUrl,
       title: stripTags(title),
       description: stripTags(desc),
       body_excerpt: bodyText.slice(0, 500),
       http_status: res.status
     };
   }
-  return { domain, url: `https://${domain}`, title: '', description: '', body_excerpt: '', http_status: 0, note: 'site_unreachable' };
+  return null;
 }
 
 module.exports = async (req, res) => {
@@ -202,19 +244,25 @@ module.exports = async (req, res) => {
     const name = String(body.name || '').trim();
     const jobTitle = String(body.job_title || body.jobTitle || '').trim();
     const text = String(body.text || body.raw_requirements || body.raw_text || '').trim();
-    const domain = domainFromEmail(email) || String(body.domain || '').trim();
+    const rawDomain = (email && email.includes('@')) ? email.split('@')[1].toLowerCase().trim() : '';
+    const isPublic = isPublicEmailDomain(rawDomain);
+    const domain = domainFromEmail(email) || (!isPublicEmailDomain(body.domain) ? String(body.domain || '').trim() : '');
 
     const sources = [];
     const notes = [];
 
-    // 1) 邮箱域名官网
+    if (isPublic) {
+      notes.push(`客户使用公共个人邮箱（@${rawDomain}），跳过邮箱域名官网背调，保留官网字段留空`);
+    }
+
+    // 1) 邮箱域名官网（仅限企业独立域名）
     let website = null;
     if (domain) {
       website = await inspectWebsite(domain);
-      if (website && website.title) {
+      if (website && website.title && !isInvalidWebsiteUrl(website.url)) {
         sources.push({ type: 'website', label: website.title, url: website.url });
       } else if (website) {
-        notes.push('邮箱域名官网不可访问或无法解析标题');
+        notes.push('企业官网无法正常解析公开信息');
       }
     }
 
