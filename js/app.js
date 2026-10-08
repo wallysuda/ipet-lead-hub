@@ -107,7 +107,9 @@
     enrichSummary: document.getElementById('enrichSummary'),
     enrichNote: document.getElementById('enrichNote'),
     enrichSources: document.getElementById('enrichSources'),
-    enrichNoteBox: document.getElementById('enrichNoteBox')
+    enrichNoteBox: document.getElementById('enrichNoteBox'),
+    btnRunAiAnalyze: document.getElementById('btnRunAiAnalyze'),
+    aiAnalyzeStatus: document.getElementById('aiAnalyzeStatus')
   };
 
   function updateBatchBar() {
@@ -1565,6 +1567,16 @@
     const strategies = window.InquiryResponder.getStrategies(currentEmailAnalysis, lead);
     renderEmailStrategies(strategies);
 
+    // AI 深度定制状态
+    if (lead.ai_analysis) {
+      applyAiAnalysisToModal(lead, lead.ai_analysis);
+      if (el.aiAnalyzeStatus) el.aiAnalyzeStatus.textContent = '已加载 AI 深度定制结果';
+    } else {
+      if (el.aiAnalyzeStatus) el.aiAnalyzeStatus.textContent = '';
+      const oldAiBlock = document.querySelector('.ai-decision-block');
+      if (oldAiBlock) oldAiBlock.remove();
+    }
+
     el.modalEmail.classList.add('active');
     document.body.classList.add('modal-open');
     const scrollBox = document.getElementById('emailModalScroll');
@@ -1834,6 +1846,102 @@
         showToast('已打开邮件客户端。发出后回来点「已跟进」', 'info');
         refreshVisibleTable();
       });
+    }
+
+    if (el.btnRunAiAnalyze) {
+      el.btnRunAiAnalyze.addEventListener('click', () => {
+        if (!currentEmailLead) return;
+        runAiAnalyze(currentEmailLead);
+      });
+    }
+  }
+
+  async function runAiAnalyze(lead, options = {}) {
+    if (!lead) return;
+    if (el.btnRunAiAnalyze) el.btnRunAiAnalyze.disabled = true;
+    if (el.aiAnalyzeStatus) el.aiAnalyzeStatus.textContent = 'AI 正在研读需求与官网…';
+
+    try {
+      showToast('正在调用 Gemini Flash 生成专属工程回复...', 'info');
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          name: lead.name || lead.first_name || '',
+          email: lead.email || '',
+          company: lead.company || '',
+          job_title: lead.job_title || '',
+          source: lead.source || lead.lead_source || '',
+          raw_text: lead.raw_text || lead.raw_requirements || lead.requirements || '',
+          enrichment: lead.enrichment || lead.enrichment_manual || null
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.parsed) {
+        throw new Error(data.error || 'AI 分析生成失败');
+      }
+
+      lead.ai_analysis = data.parsed;
+      lead.ai_raw_markdown = data.raw_markdown;
+      lead.ai_model = data.model;
+      persistLeadMutation(lead);
+
+      applyAiAnalysisToModal(lead, data.parsed);
+
+      if (el.aiAnalyzeStatus) el.aiAnalyzeStatus.textContent = '已由 AI 深度定制 (Flash 0元)';
+      showToast('AI 深度定制完成！纯正北美工程邮件已生成', 'success');
+      refreshVisibleTable();
+    } catch (err) {
+      console.error('runAiAnalyze error:', err);
+      if (el.aiAnalyzeStatus) el.aiAnalyzeStatus.textContent = '生成失败，可重试';
+      showToast(`AI 生成失败: ${err.message}`, 'error');
+    } finally {
+      if (el.btnRunAiAnalyze) el.btnRunAiAnalyze.disabled = false;
+    }
+  }
+
+  function applyAiAnalysisToModal(lead, ai) {
+    if (!ai) return;
+
+    // 1. 注入推荐邮件主题行
+    if (Array.isArray(ai.subjects) && ai.subjects.length > 0) {
+      const subjectObjs = ai.subjects.map((s, idx) => ({
+        text: s,
+        label: idx === 0 ? '官方回执 (首选)' : idx === 1 ? '自然跟进' : '项目对标',
+        charCount: s.length
+      }));
+      renderEmailSubjects(subjectObjs);
+    }
+
+    // 2. 注入纯英文正文
+    if (ai.email_body && el.emailBodyTextarea) {
+      el.emailBodyTextarea.value = ai.email_body;
+      updateEmailLenMeta(ai.email_body);
+    }
+
+    // 3. 增强决策卡：展示 AI 深度洞察与跟进备忘
+    const host = document.getElementById('decisionCard');
+    if (host) {
+      const old = host.querySelector('.ai-decision-block');
+      if (old) old.remove();
+
+      const aiBlock = document.createElement('div');
+      aiBlock.className = 'dc-block ai-decision-block';
+      aiBlock.style.borderLeft = '3px solid var(--primary-accent, #3b82f6)';
+      aiBlock.style.background = 'rgba(79, 126, 248, 0.05)';
+      aiBlock.style.padding = '8px 12px';
+      aiBlock.style.borderRadius = '4px';
+      aiBlock.style.marginTop = '8px';
+      aiBlock.innerHTML = `
+        <div class="dc-label" style="color:var(--primary-accent, #3b82f6); font-weight:600;">AI 深度画像透视 (Gemini Flash 0元)</div>
+        <div class="dc-value" style="font-size:12px; line-height:1.6;">
+          <strong>客群画像：</strong>${escapeHtml(ai.persona || '-')}<br>
+          <strong>中文参考：</strong>${escapeHtml(ai.chinese_brief || '-')}<br>
+          <strong style="color:var(--text-accent, #eab308);">跟进预案：</strong>${escapeHtml(ai.follow_up_notes || '-')}
+        </div>
+      `;
+      host.appendChild(aiBlock);
     }
   }
 
