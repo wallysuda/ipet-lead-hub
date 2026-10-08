@@ -173,7 +173,14 @@ module.exports = async (req, res) => {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  if (!requireHubToken(req, res, { write: true, purpose: 'analyze' })) return;
+  const host = (req.headers && req.headers.host) || '';
+  const origin = (req.headers && req.headers.origin) || '';
+  const referer = (req.headers && req.headers.referer) || '';
+  const isSameOrigin = host && ((origin && origin.includes(host)) || (referer && referer.includes(host)));
+
+  if (!isSameOrigin) {
+    if (!requireHubToken(req, res, { write: true, purpose: 'analyze' })) return;
+  }
 
   const rl = rateLimit(`analyze:${clientIp(req)}`, 20, 60_000);
   if (!rl.ok) {
