@@ -1147,6 +1147,29 @@
     };
   }
 
+  // 智能识别机型形态与核心工况标签
+  function resolveEngineeringTag(lead) {
+    if (lead.ai_analysis) {
+      if (lead.ai_analysis.core_pain_points) {
+        const m = lead.ai_analysis.core_pain_points.match(/(\d+\s*kg[^\n，,、]+(?:vtol|多旋翼|无人机|固定翼)?)/i);
+        if (m) return m[1].slice(0, 24);
+      }
+      if (lead.ai_analysis.persona && lead.ai_analysis.persona.includes('VTOL')) {
+        return '17kg VTOL · I8';
+      }
+    }
+    const fullT = ((lead.raw_text || '') + ' ' + (lead.raw_requirements || '') + ' ' + JSON.stringify(lead.fields_filled || {})).toLowerCase();
+    if (fullT.includes('17kg') || fullT.includes('17 kg')) return '17kg VTOL · I8';
+    if (fullT.includes('65kg') || fullT.includes('65 kg')) return '65kg 重载多旋翼';
+    if (fullT.includes('gimbal') || fullT.includes('gremsy')) return '三轴云台 · 选型';
+    if (fullT.includes('dronex') || fullT.includes('kaixin')) return 'DroneX 展位对接';
+    if (fullT.includes('microelectronics') || fullT.includes('wire bonding')) return '微电子封装外协';
+    if (fullT.includes('vtol')) return 'VTOL 垂直起降';
+    if (fullT.includes('i8')) return 'I8 重载动力';
+    if (fullT.includes('i7')) return 'I7 动力系统';
+    return '';
+  }
+
   // 综合解析线索中的采购需求与技术意图（结构化分析）
   function synthesizeLeadFields(lead) {
     if (window.Normalizer && typeof window.Normalizer.synthesizeAnalysis === 'function') {
@@ -1329,7 +1352,7 @@
     if (leads.length === 0) {
       el.leadsTableBody.innerHTML = `
         <tr>
-          <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-dim);">
+          <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-dim);">
             当前暂无匹配线索资产
           </td>
         </tr>
@@ -1393,6 +1416,12 @@
       else if (fullT.toLowerCase().includes("microelectronics")) cleanScenario = "微电子元器件外协对接 (Microelectronics Packaging)";
       const sourceInfo = resolveLeadSourceChannel({ ...l, channel_scenario: cleanScenario });
 
+      // 提取核心机型与工程工况标签
+      const engTag = resolveEngineeringTag(l);
+      const engTagHtml = engTag
+        ? `<div style="margin-bottom: 5px;"><span class="badge badge-info" style="font-size:10.5px; font-weight:700; padding:1px 7px;">✈️ ${escapeHtml(engTag)}</span></div>`
+        : '';
+
       // 提交时间拆成 日期 / 时间 两行
       let datePart = cleanSubmittedTime || '-';
       let timePart = '';
@@ -1413,6 +1442,7 @@
         : grade.code === 'G2_SUPPLIER' ? '供应链模板'
         : grade.code === 'G3_NURTURE' ? '生成补参短问'
         : '生成专业英文邮件';
+      const actionBtnText = l.ai_analysis ? '查看/发送邮件' : escapeHtml(actionLabel);
 
       const tr = document.createElement('tr');
       tr.dataset.id = l.id;
@@ -1431,17 +1461,23 @@
           <div class="cell-source-tag"><span class="badge ${sourceInfo.badgeClass}">${escapeHtml(sourceInfo.channel)}</span></div>
           <div class="cell-source-desc" title="${escapeHtml(sourceInfo.scenario || '')}">${escapeHtml(sourceInfo.scenario || '')}</div>
         </td>
-        <td class="cell-req">${fieldsHtml}</td>
-        <td class="intent-cell">
-          <div class="intent-row">
-            <span class="badge ${badge} intent-badge">${tierLabel}</span>${liveBadge}
-          </div>
-          <div class="intent-action" title="${escapeHtml(grade.primary_action || '')}">${escapeHtml(grade.primary_action || '')}</div>
+        <td class="cell-req">
+          ${engTagHtml}
+          ${fieldsHtml}
         </td>
-        <td class="cell-one-line cell-score"><span class="score-num ${ (grade.maturity || 0) >= 4.0 ? 'score-hi' : 'score-mid'}">${(grade.maturity || 0).toFixed(1)} / 5.0</span></td>
-        <td class="cell-strategy">${escapeHtml(j.recommended_action || grade.primary_action || '-')}</td>
+        <td class="intent-cell">
+          <div class="intent-row" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span class="badge ${badge} intent-badge">${tierLabel}</span>${liveBadge}
+            <span class="score-num ${ (grade.maturity || 0) >= 4.0 ? 'score-hi' : 'score-mid'}" style="font-size:11px;">${(grade.maturity || 0).toFixed(1)}/5.0</span>
+          </div>
+          <div style="margin-top: 5px;">
+            ${l.ai_analysis
+              ? '<span class="badge badge-success" style="font-size:10px; padding:1px 6px;">● 纯正英文就绪</span>'
+              : '<span class="badge" style="font-size:10px; padding:1px 6px; background:#f1f5f9; color:#64748b;">○ 待研判</span>'}
+          </div>
+        </td>
         <td class="cell-action">
-          <button class="btn btn-xs btn-primary btn-action-email" data-id="${escapeHtml(l.id)}">${escapeHtml(actionLabel)}</button>
+          <button class="btn btn-xs btn-primary btn-action-email" data-id="${escapeHtml(l.id)}">${actionBtnText}</button>
         </td>
       `;
       el.leadsTableBody.appendChild(tr);
