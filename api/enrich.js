@@ -275,7 +275,14 @@ module.exports = async (req, res) => {
     });
   }
 
-  if (!requireHubToken(req, res, { write: true, purpose: 'enrich' })) return;
+  const host = (req.headers && req.headers.host) || '';
+  const origin = (req.headers && req.headers.origin) || '';
+  const referer = (req.headers && req.headers.referer) || '';
+  const isSameOrigin = host && ((origin && origin.includes(host)) || (referer && referer.includes(host)));
+
+  if (!isSameOrigin) {
+    if (!requireHubToken(req, res, { write: true, purpose: 'enrich' })) return;
+  }
 
   const rl = rateLimit(`enrich:${clientIp(req)}`, 20, 60_000);
   if (!rl.ok) {
