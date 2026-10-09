@@ -202,58 +202,63 @@
         <div id="emailModalPersonaBadge">--</div>
       </div>
 
-      <!-- 销售决策卡 -->
+      <!-- 统一工程中枢与研判档案 -->
       <div class="decision-card" id="decisionCard"></div>
 
-      <!-- 自动背调结果（可修正 / 可重查） -->
-      <div class="enrich-panel" id="enrichPanel">
-        <div class="enrich-head">
-          <div class="enrich-title">
-            公司自动背调
-            <span class="enrich-badge low" id="enrichConfidence">未背调</span>
-            <span class="enrich-badge manual" id="enrichManualBadge" hidden>已人工修正</span>
+      <!-- 底层背调与信号 (可折叠抽屉 · 避免挤占工作区) -->
+      <details class="enrich-details-wrap" id="enrichDetailsWrap" style="margin: 0 16px 6px; border: 1px dashed var(--border-subtle); border-radius: 6px; padding: 6px 12px; background: rgba(255,255,255,0.4);">
+        <summary style="font-size: 11.5px; color: var(--text-muted); cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+          <span>⚙️ <strong>底层背调字段微调与信号</strong> <span style="font-size:10.5px; color:var(--text-dim);">(点击展开可手动覆盖公司、官网或备注)</span></span>
+          <span class="enrich-badge manual" id="enrichManualBadge" hidden>已人工修正</span>
+        </summary>
+        <div class="enrich-panel" id="enrichPanel" style="margin: 8px 0 0; border: none; padding: 0;">
+          <div class="enrich-head" style="margin-bottom: 8px;">
+            <div class="enrich-title" style="font-size: 12px;">
+              公开信号背调
+              <span class="enrich-badge low" id="enrichConfidence">未背调</span>
+            </div>
+            <div class="enrich-actions">
+              <button class="btn btn-xs btn-outline" id="btnEnrichNow" title="基于 Gemini 重新研判实体与公开信号">重新背调</button>
+              <button class="btn btn-xs btn-outline" id="btnEnrichReset" title="放弃人工修正，恢复自动结果">恢复自动</button>
+              <button class="btn btn-xs btn-primary" id="btnEnrichSave" title="保存修正并覆盖分析使用的背调字段">保存修正</button>
+            </div>
           </div>
-          <div class="enrich-actions">
-            <button class="btn btn-xs btn-outline" id="btnEnrichNow" title="重新抓取官网/公开信号">重新背调</button>
-            <button class="btn btn-xs btn-outline" id="btnEnrichReset" title="放弃人工修正，恢复自动结果">恢复自动</button>
-            <button class="btn btn-xs btn-primary" id="btnEnrichSave" title="保存修正并覆盖分析使用的背调字段">保存修正</button>
+          <div class="enrich-grid">
+            <div class="enrich-field">
+              <label>公司名称（可改）</label>
+              <input id="enrichCompany" type="text" placeholder="自动识别 / 人工修正">
+            </div>
+            <div class="enrich-field">
+              <label>官网</label>
+              <input id="enrichWebsite" type="text" placeholder="https://">
+            </div>
+            <div class="enrich-field">
+              <label>行业判断（可改）</label>
+              <input id="enrichIndustry" type="text" placeholder="无人机 / 电子 / 消费级…">
+            </div>
+            <div class="enrich-field">
+              <label>是否目标客群</label>
+              <select id="enrichTarget">
+                <option value="">未判定</option>
+                <option value="yes">是 · 工业无人机相关</option>
+                <option value="no">否 · 非目标</option>
+              </select>
+            </div>
+            <div class="enrich-field full">
+              <label>背调摘要（自动，可改）</label>
+              <textarea id="enrichSummary" rows="3" placeholder="自动摘要 / 人工修正"></textarea>
+            </div>
+            <div class="enrich-field full">
+              <label>人工备注（错误纠正、线索来源）</label>
+              <textarea id="enrichNote" rows="2" placeholder="例如：搜到的是同名公司，正确官网是…"></textarea>
+            </div>
+          </div>
+          <div class="enrich-sources" id="enrichSources">暂无公开信号</div>
+          <div class="enrich-note" id="enrichNoteBox">
+            自动背调可能出错：可直接改字段后「保存修正」。修正会覆盖分析与邮件用词，并标记「已人工修正」。
           </div>
         </div>
-        <div class="enrich-grid">
-          <div class="enrich-field">
-            <label>公司名称（可改）</label>
-            <input id="enrichCompany" type="text" placeholder="自动识别 / 人工修正">
-          </div>
-          <div class="enrich-field">
-            <label>官网</label>
-            <input id="enrichWebsite" type="text" placeholder="https://">
-          </div>
-          <div class="enrich-field">
-            <label>行业判断（可改）</label>
-            <input id="enrichIndustry" type="text" placeholder="无人机 / 电子 / 消费级…">
-          </div>
-          <div class="enrich-field">
-            <label>是否目标客群</label>
-            <select id="enrichTarget">
-              <option value="">未判定</option>
-              <option value="yes">是 · 工业无人机相关</option>
-              <option value="no">否 · 非目标</option>
-            </select>
-          </div>
-          <div class="enrich-field full">
-            <label>背调摘要（自动，可改）</label>
-            <textarea id="enrichSummary" rows="3" placeholder="自动摘要 / 人工修正"></textarea>
-          </div>
-          <div class="enrich-field full">
-            <label>人工备注（错误纠正、线索来源）</label>
-            <textarea id="enrichNote" rows="2" placeholder="例如：搜到的是同名公司，正确官网是…"></textarea>
-          </div>
-        </div>
-        <div class="enrich-sources" id="enrichSources">暂无公开信号</div>
-        <div class="enrich-note" id="enrichNoteBox">
-          自动背调可能出错：可直接改字段后「保存修正」。修正会覆盖分析与邮件用词，并标记「已人工修正」。
-        </div>
-      </div>
+      </details>
 
       <!-- 客户回复闭环 -->
       <div class="reply-panel" id="replyPanel">
@@ -274,14 +279,20 @@
       <div class="email-modal-grid">
         <!-- 左栏：策略切角与主题行 -->
         <div class="email-col-left">
-          <div class="form-group">
+          <div class="form-group" id="strategyCardsGroup">
             <label class="form-label">1. 动作策略 (按意图分级 G0–G5 分流 · 点击切换)</label>
             <div class="strategy-cards-container" id="emailStrategyCards"></div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">2. 英文主题行 (推荐 35–50 字符 · 外发前自动校验)</label>
+          <div class="form-group" id="subjectListGroup">
+            <label class="form-label" id="subjectListTitle">2. 推荐英文主题行 (官方回执 / 自然跟进 / 项目对标 · 点击即换)</label>
             <div class="subject-list" id="emailSubjectList"></div>
+          </div>
+
+          <!-- AI 跟进预案与中文备忘 -->
+          <div class="form-group" id="aiStrategyNotesBlock" style="display:none; margin-top:10px; padding:10px 12px; background:rgba(79, 126, 248, 0.04); border-left:3px solid var(--primary-accent, #3b82f6); border-radius:4px;">
+            <div style="font-size:11.5px; font-weight:700; color:var(--primary-accent, #3b82f6); margin-bottom:6px;">📋 策略预案与中文释义</div>
+            <div id="aiStrategyNotesText" style="font-size:11.5px; line-height:1.6; color:var(--text-main);"></div>
           </div>
         </div>
 

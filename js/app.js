@@ -1593,11 +1593,16 @@
     // AI 深度定制状态
     if (lead.ai_analysis) {
       applyAiAnalysisToModal(lead, lead.ai_analysis);
-      if (el.aiAnalyzeStatus) el.aiAnalyzeStatus.textContent = '已加载 AI 深度定制结果';
+      if (el.aiAnalyzeStatus) el.aiAnalyzeStatus.textContent = '已由 AI 深度定制 (Flash 0元)';
     } else {
+      const stratGroup = document.getElementById('strategyCardsGroup');
+      if (stratGroup) stratGroup.style.display = 'block';
+      const subjTitle = document.getElementById('subjectListTitle');
+      if (subjTitle) subjTitle.textContent = '2. 英文主题行 (推荐 35–50 字符 · 外发前自动校验)';
+      const notesBlock = document.getElementById('aiStrategyNotesBlock');
+      if (notesBlock) notesBlock.style.display = 'none';
       if (el.aiAnalyzeStatus) el.aiAnalyzeStatus.textContent = '';
-      const oldAiBlock = document.querySelector('.ai-decision-block');
-      if (oldAiBlock) oldAiBlock.remove();
+      renderDecisionCard(card, validity, intent, null);
     }
 
     el.modalEmail.classList.add('active');
@@ -1606,9 +1611,74 @@
     if (scrollBox) scrollBox.scrollTop = 0;
   }
 
-  function renderDecisionCard(card, validity, intent) {
+  function renderDecisionCard(card, validity, intent, ai = null) {
     const host = document.getElementById('decisionCard');
-    if (!host || !card) return;
+    if (!host) return;
+
+    if (ai) {
+      // 2.0 统一 AI 工程中枢与情报档案 (Single Source of Truth)
+      const persona = ai.persona || '';
+      let personaBadgeClass = 'success';
+      if (persona.includes('A') || persona.includes('科研')) personaBadgeClass = 'info';
+      else if (persona.includes('C') || persona.includes('极简')) personaBadgeClass = 'warn';
+      else if (persona.includes('D') || persona.includes('过滤') || persona.includes('回绝')) personaBadgeClass = 'crit';
+
+      const enrich = currentEmailLead ? currentEnrichView(currentEmailLead) : {};
+      const entityName = enrich.company || (currentEmailLead && currentEmailLead.company) || '未公开/个人研发团队';
+      const websiteStr = enrich.website
+        ? `<a href="${escapeHtml(enrich.website)}" target="_blank" style="color:var(--primary-accent); text-decoration:underline;">${escapeHtml(enrich.website)}</a>`
+        : '<span style="color:var(--text-dim);">未公开独立官网 / 保密项目</span>';
+
+      host.innerHTML = `
+        <div style="grid-column: 1 / -1; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(0,0,0,0.06); padding-bottom:8px; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="badge badge-${personaBadgeClass}" style="font-size:12px; font-weight:700;">${escapeHtml(persona || 'AI 深度画像研判')}</span>
+            <span style="font-size:12px; color:var(--text-main); font-weight:600;">${escapeHtml(entityName)}</span>
+            <span style="font-size:11px; color:var(--text-muted);">${websiteStr}</span>
+          </div>
+          <button type="button" class="btn btn-xs btn-outline" id="btnToggleAiMarkdown">查看完整 AI 报告</button>
+        </div>
+
+        <div class="dc-block">
+          <div class="dc-label" style="color:#2563eb; font-weight:700;">✈️ 飞行器形态与核心物理约束</div>
+          <div class="dc-value" style="font-size:12px; line-height:1.55;">
+            ${ai.core_pain_points ? escapeHtml(ai.core_pain_points) : '已匹配工业级无人机动力工况区间'}
+          </div>
+        </div>
+
+        <div class="dc-block">
+          <div class="dc-label" style="color:#059669; font-weight:700;">⚡ 建议动力方案与交付承诺</div>
+          <div class="dc-value" style="font-size:12px; line-height:1.55;">
+            <div><strong>推荐配置：</strong>IPET 一体化动力系统 (电机+ESC+螺旋桨工厂匹配)</div>
+            <div style="margin-top:4px;"><strong>工程交付物：</strong>推进选型表 (Sizing Sheet) · 3D STEP 模型 · 台架实测曲线</div>
+            <div style="margin-top:4px; font-size:11px; color:var(--text-muted);">遥测支持：原生 DroneCAN 实时电流/转速/MOS温升反馈</div>
+          </div>
+        </div>
+
+        <div class="dc-block">
+          <div class="dc-label" style="color:#d97706; font-weight:700;">🛡️ 商业情报与风控备忘</div>
+          <div class="dc-value" style="font-size:12px; line-height:1.55;">
+            <div>${escapeHtml(enrich.summary || ai.chinese_brief || '正在推进深度工程对接')}</div>
+            ${enrich.risk_note ? `<div style="margin-top:4px; color:#b45309; font-size:11px;">⚠️ <strong>风控建议：</strong>${escapeHtml(enrich.risk_note)}</div>` : ''}
+          </div>
+        </div>
+
+        <div id="aiFullMarkdownViewer" style="display:none; grid-column:1 / -1; margin-top:8px; padding:10px 12px; background:var(--bg-main); border:1px solid var(--border-color); border-radius:4px; font-family:var(--font-mono); font-size:11px; white-space:pre-wrap; max-height:280px; overflow-y:auto; color:var(--text-muted); line-height:1.5;">${escapeHtml(ai.raw_markdown || '')}</div>
+      `;
+
+      const btnToggle = host.querySelector('#btnToggleAiMarkdown');
+      const markdownViewer = host.querySelector('#aiFullMarkdownViewer');
+      if (btnToggle && markdownViewer) {
+        btnToggle.addEventListener('click', () => {
+          const isHidden = markdownViewer.style.display === 'none';
+          markdownViewer.style.display = isHidden ? 'block' : 'none';
+          btnToggle.textContent = isHidden ? '收起研判报告' : '查看完整 AI 报告';
+        });
+      }
+      return;
+    }
+
+    if (!card) return;
     const v = validity || card.validity;
     const chips = (v.reasons || []).map(r => `<span class="dc-chip ${v.badge || 'info'}">${escapeHtml(r)}</span>`).join('');
     const present = (card.params_present || []).length
@@ -1957,54 +2027,25 @@
       updateEmailLenMeta(ai.email_body);
     }
 
-    // 3. 增强决策卡：展示 AI 深度画像、底层工程物理约束、中文释义与二次跟进预案
-    const host = document.getElementById('decisionCard');
-    if (host) {
-      const old = host.querySelector('.ai-decision-block');
-      if (old) old.remove();
+    // 3. 隐藏左栏机械的 4 张旧策略大卡片，激活推荐主题行与跟进备忘
+    const stratGroup = document.getElementById('strategyCardsGroup');
+    if (stratGroup) stratGroup.style.display = 'none';
 
-      const aiBlock = document.createElement('div');
-      aiBlock.className = 'dc-block ai-decision-block';
-      aiBlock.style.borderLeft = '3px solid #10b981';
-      aiBlock.style.background = 'rgba(16, 185, 129, 0.05)';
-      aiBlock.style.padding = '12px 14px';
-      aiBlock.style.borderRadius = '6px';
-      aiBlock.style.marginTop = '10px';
+    const subjTitle = document.getElementById('subjectListTitle');
+    if (subjTitle) subjTitle.textContent = '1. 推荐英文主题行 (官方回执 / 自然跟进 / 项目对标 · 点击即换)';
 
-      const painPointsHtml = ai.core_pain_points ? `
-        <div style="margin-top:8px; padding:8px 10px; background:rgba(0,0,0,0.18); border-radius:4px; font-family:var(--font-mono); font-size:11.5px; color:#e2e8f0; white-space:pre-wrap; line-height:1.6;">
-          <strong style="color:#60a5fa;">⚙️ 底层物理与核心工程痛点：</strong>\n${escapeHtml(ai.core_pain_points)}
-        </div>
-      ` : '';
-
-      aiBlock.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div class="dc-label" style="color:#10b981; font-weight:700; font-size:12px; display:flex; align-items:center; gap:6px;">
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
-            AI 深度工程研判全景 (Gemini Flash · 纯正北美工程水准)
-          </div>
-          <button type="button" class="btn btn-xs btn-outline" id="btnToggleAiMarkdown" style="font-size:10px; padding:2px 8px; cursor:pointer;">查看完整研判报告</button>
-        </div>
-        <div class="dc-value" style="font-size:12px; line-height:1.6;">
-          <div><strong style="color:var(--text-main);">🎯 客群画像透视：</strong>${escapeHtml(ai.persona || '-')}</div>
-          ${painPointsHtml}
-          <div style="margin-top:6px;"><strong style="color:var(--text-main);">📝 邮件中文释义：</strong>${escapeHtml(ai.chinese_brief || '-')}</div>
-          <div style="margin-top:6px;"><strong style="color:#f59e0b;">📋 跟进预案与二次触达：</strong>${escapeHtml(ai.follow_up_notes || '-')}</div>
-        </div>
-        <div id="aiFullMarkdownViewer" style="display:none; margin-top:10px; padding:10px 12px; background:var(--bg-main); border:1px solid var(--border-color); border-radius:4px; font-family:var(--font-mono); font-size:11px; white-space:pre-wrap; max-height:280px; overflow-y:auto; color:var(--text-muted); line-height:1.5;">${escapeHtml(ai.raw_markdown || lead.ai_raw_markdown || '')}</div>
+    const notesBlock = document.getElementById('aiStrategyNotesBlock');
+    const notesText = document.getElementById('aiStrategyNotesText');
+    if (notesBlock && notesText) {
+      notesBlock.style.display = 'block';
+      notesText.innerHTML = `
+        <div style="margin-bottom:6px;"><strong style="color:var(--text-main);">📝 邮件中文释义：</strong><br>${escapeHtml(ai.chinese_brief || '-')}</div>
+        <div><strong style="color:#d97706;">📋 策略预案与二次触达：</strong><br>${escapeHtml(ai.follow_up_notes || '-')}</div>
       `;
-      host.appendChild(aiBlock);
-
-      const btnToggle = aiBlock.querySelector('#btnToggleAiMarkdown');
-      const markdownViewer = aiBlock.querySelector('#aiFullMarkdownViewer');
-      if (btnToggle && markdownViewer) {
-        btnToggle.addEventListener('click', () => {
-          const isHidden = markdownViewer.style.display === 'none';
-          markdownViewer.style.display = isHidden ? 'block' : 'none';
-          btnToggle.textContent = isHidden ? '收起研判报告' : '查看完整研判报告';
-        });
-      }
     }
+
+    // 4. 重塑决策卡为统一的单一真源 AI 工程情报中枢
+    renderDecisionCard(null, null, null, ai);
   }
 
   // 转义 HTML 辅助函数

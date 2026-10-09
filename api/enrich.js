@@ -22,6 +22,57 @@ function env(name) {
   return typeof v === 'string' && v.trim() ? v.trim() : '';
 }
 
+function getGeminiKey() {
+  return env('GEMINI_API_KEY');
+}
+
+function callGeminiJson(apiKey, prompt) {
+  return new Promise((resolve) => {
+    const payload = JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 4096
+      }
+    });
+
+    const req = https.request({
+      hostname: 'generativelanguage.googleapis.com',
+      path: `/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            const parsed = JSON.parse(data);
+            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+              const json = JSON.parse(cleaned);
+              resolve({ ok: true, data: json });
+              return;
+            }
+          }
+          resolve({ ok: false, error: data });
+        } catch (e) {
+          resolve({ ok: false, error: e.message });
+        }
+      });
+    });
+
+    req.on('error', (e) => resolve({ ok: false, error: e.message }));
+    req.setTimeout(15000, () => { req.destroy(); resolve({ ok: false, error: 'timeout' }); });
+    req.write(payload);
+    req.end();
+  });
+}
+
 function fetchUrl(url, timeoutMs = 6000, maxBytes = 120000) {
   return new Promise((resolve) => {
     try {
@@ -295,6 +346,42 @@ module.exports = async (req, res) => {
     else if (website && website.title) confidence = 'medium';
     else if (ddg && ddg.abstract) confidence = 'medium';
 
+    // 4) Gemini 3.5 Flash 智能情报研判 (0元免费配额)
+    let aiEnrichResult = null;
+    const apiKey = getGeminiKey();
+    if (apiKey) {
+      const scrapedSnippet = [
+        website?.title ? `Website Title: ${website.title}` : '',
+        website?.description ? `Website Meta: ${website.description}` : '',
+        ddg?.abstract ? `Search Abstract: ${ddg.abstract}` : ''
+      ].filter(Boolean).join(' | ');
+
+      const aiPrompt = `You are a B2B Lead Intelligence Specialist for industrial UAV propulsion systems (IPET SYSTEM, ipetsystem.com).
+Perform an authoritative B2B Background Intelligence Analysis (背调研判) for this inbound lead:
+- Name: ${name || 'N/A'}
+- Email: ${email || 'N/A'}
+- Company: ${company || 'N/A'}
+- Job Title: ${jobTitle || 'N/A'}
+- Inbound Text: ${text || 'N/A'}
+- Scraped Web/Search Context: ${scrapedSnippet || 'None'}
+
+Return ONLY a valid JSON object matching this schema:
+{
+  "recognized_entity": "Company or Institution name, or '未具名工业无人机研发团队/个人开发者' if stealth/unnamed",
+  "probable_website": "Official website URL if clearly known or verified, otherwise empty string ''",
+  "industry": "Industry classification (e.g. 工业级无人机整机研制 / 垂直起降飞行器 / 高校实验室 / 云台载荷)",
+  "is_target": true,
+  "confidence": "high/medium/low",
+  "summary": "2-3 sentences concise B2B background & procurement potential analysis (in Chinese)",
+  "risk_note": "1-2 sentences of commercial/competitor intelligence risks or verification advice (in Chinese)"
+}`;
+
+      const aiCall = await callGeminiJson(apiKey, aiPrompt);
+      if (aiCall.ok && aiCall.data) {
+        aiEnrichResult = aiCall.data;
+      }
+    }
+
     const enrichment = {
       researched_at: new Date().toISOString(),
       query_company: company,
@@ -314,8 +401,34 @@ module.exports = async (req, res) => {
       confidence,
       sources,
       notes,
-      model_note: '基于公开网页信号的自动背调，可人工修正；不得作为唯一判定依据'
+      model_note: aiEnrichResult ? '由 Gemini 3.5 Flash 深度情报研判' : '基于公开网页信号的自动背调，可人工修正'
     };
+
+    if (aiEnrichResult) {
+      enrichment.ai_enrich = true;
+      enrichment.recognized_entity = aiEnrichResult.recognized_entity || company;
+      if (aiEnrichResult.probable_website && !isInvalidWebsiteUrl(aiEnrichResult.probable_website)) {
+        if (!website) website = { url: aiEnrichResult.probable_website, title: aiEnrichResult.recognized_entity };
+        enrichment.website = website;
+      }
+      if (aiEnrichResult.industry) {
+        enrichment.industry_label = aiEnrichResult.industry;
+        enrichment.industry_guess = [aiEnrichResult.industry];
+      }
+      if (aiEnrichResult.summary) {
+        enrichment.summary = aiEnrichResult.summary;
+      }
+      if (aiEnrichResult.risk_note) {
+        enrichment.risk_note = aiEnrichResult.risk_note;
+      }
+      if (typeof aiEnrichResult.is_target === 'boolean') {
+        enrichment.is_likely_target = aiEnrichResult.is_target;
+      }
+      if (aiEnrichResult.confidence) {
+        enrichment.confidence = aiEnrichResult.confidence;
+      }
+      sources.push({ type: 'ai', label: 'Gemini 3.5 Flash 智能背调研判' });
+    }
 
     return res.status(200).json({
       success: true,
