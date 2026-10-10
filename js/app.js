@@ -819,7 +819,8 @@
         showToast('已通过开通链接接入云端，后续打开无需再填令牌', 'success');
       }
     } else {
-      showAuthBar(true);
+      // 同源部署默认免令牌访问，仅当写操作返回 401 触发 ipet:auth_required 时再弹出
+      showAuthBar(false);
     }
 
     // 订阅数据变动
