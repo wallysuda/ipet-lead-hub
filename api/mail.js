@@ -33,7 +33,10 @@ const IGNORED_SENDER_PATTERNS = [
   'marketing@',
   'newsletter@',
   'news@',
-  'security@'
+  'security@',
+  // 合作媒体/平台/服务商（非客户买家询盘）
+  'echoblue.co.uk',
+  'unmannedsystemstechnology.com'
 ];
 
 function isAutomatedOrNewsletter(email) {
