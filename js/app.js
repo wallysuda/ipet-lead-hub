@@ -25,6 +25,8 @@
     btnClearCustom: document.getElementById('btnClearCustom'),
 
     // 快捷粘贴卡片
+    pasteCard: document.getElementById('pasteCard'),
+    btnClosePasteCard: document.getElementById('btnClosePasteCard'),
     pasteLeadInput: document.getElementById('pasteLeadInput'),
     pasteSyncIndicator: document.getElementById('pasteSyncIndicator'),
     btnPasteLead: document.getElementById('btnPasteLead'),
@@ -910,15 +912,39 @@
       });
     }
 
-    // 3. 快捷粘贴录入跳转
+    // 3. 快捷粘贴录入抽屉切换
     if (el.btnFocusPaste) {
       el.btnFocusPaste.addEventListener('click', () => {
-        if (el.pasteLeadInput) {
-          el.pasteLeadInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          el.pasteLeadInput.focus();
+        if (el.pasteCard) {
+          const isHidden = el.pasteCard.hidden;
+          el.pasteCard.hidden = !isHidden;
+          if (!el.pasteCard.hidden && el.pasteLeadInput) {
+            el.pasteLeadInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            el.pasteLeadInput.focus();
+          }
         }
       });
     }
+
+    if (el.btnClosePasteCard) {
+      el.btnClosePasteCard.addEventListener('click', () => {
+        if (el.pasteCard) el.pasteCard.hidden = true;
+      });
+    }
+
+    // 漏斗指标卡片一键快筛
+    const kpiCards = document.querySelectorAll('.kpi-card[data-tier]');
+    kpiCards.forEach(card => {
+      card.addEventListener('click', () => {
+        const tier = card.getAttribute('data-tier') || '';
+        kpiCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        if (el.leadTierFilter) {
+          el.leadTierFilter.value = tier;
+        }
+        refreshVisibleTable();
+      });
+    });
 
     // 4. 清空本地导入
     if (el.btnClearCustom) {
@@ -997,7 +1023,9 @@
     if (el.btnPasteCancel) {
       el.btnPasteCancel.addEventListener('click', () => {
         hidePastePreview();
+        if (el.pasteLeadInput) el.pasteLeadInput.value = '';
         if (el.pasteSyncIndicator) el.pasteSyncIndicator.innerText = '';
+        if (el.pasteCard) el.pasteCard.hidden = true;
         showToast('已取消入库', 'info');
       });
     }
@@ -1012,7 +1040,8 @@
         try {
           const res = await window.syncService.ingestLead(normalized);
           hidePastePreview();
-          el.pasteLeadInput.value = '';
+          if (el.pasteLeadInput) el.pasteLeadInput.value = '';
+          if (el.pasteCard) el.pasteCard.hidden = true;
           if (el.pasteSyncIndicator) {
             el.pasteSyncIndicator.innerText = '已完成入库并同步云端';
             setTimeout(() => { if (el.pasteSyncIndicator) el.pasteSyncIndicator.innerText = ''; }, 3000);
@@ -1388,11 +1417,32 @@
         : '';
 
       const analyzedFields = synthesizeLeadFields(l);
-      const fieldsHtml = Object.entries(analyzedFields).map(([k, v]) => `
-        <div style="font-size: 11px; margin-bottom: 3px; line-height: 1.4;">
-          <span style="color: var(--text-dim);">${escapeHtml(k)}:</span> <strong>${escapeHtml(v)}</strong>
+      const entries = Object.entries(analyzedFields);
+      const primaryEntries = entries.slice(0, 2);
+      const secondaryEntries = entries.slice(2);
+
+      let fieldsHtml = primaryEntries.map(([k, v]) => `
+        <div class="req-row">
+          <span class="req-label">${escapeHtml(k)}:</span>
+          <span class="req-value">${escapeHtml(v)}</span>
         </div>
       `).join('');
+
+      if (secondaryEntries.length > 0) {
+        fieldsHtml += `
+          <details class="req-details">
+            <summary class="req-more-btn">展开完整工况 (${secondaryEntries.length}项) ▾</summary>
+            <div class="req-more-body">
+              ${secondaryEntries.map(([k, v]) => `
+                <div class="req-row">
+                  <span class="req-label">${escapeHtml(k)}:</span>
+                  <span class="req-value">${escapeHtml(v)}</span>
+                </div>
+              `).join('')}
+            </div>
+          </details>
+        `;
+      }
 
       let rawCleanName = (l.name || "").replace(/^(?:(?:IPET)?\s*(?:客户留言|客户姓名|客户|Contact|Name|Full Name|姓名)[:：\s]*)+/gi, "").trim() || l.name || '-';
       if (rawCleanName.toLowerCase().includes("aishwarya") || rawCleanName.toLowerCase().includes("aishwerya")) rawCleanName = "Aishwarya Gahlot";
@@ -1428,7 +1478,7 @@
       // 提取核心机型与工程工况标签
       const engTag = resolveEngineeringTag(l);
       const engTagHtml = engTag
-        ? `<div style="margin-bottom: 5px;"><span class="badge badge-info" style="font-size:10.5px; font-weight:700; padding:1px 7px;">✈️ ${escapeHtml(engTag)}</span></div>`
+        ? `<div class="req-badge-row"><span class="req-badge-primary">✈️ ${escapeHtml(engTag)}</span></div>`
         : '';
 
       // 提交时间拆成 日期 / 时间 两行
@@ -1447,11 +1497,14 @@
       }
 
       const actionLabel = grade.code === 'G0_PASS' ? '处理 · Pass'
-        : grade.code === 'G1_DECLINE' ? '生成拒绝函'
-        : grade.code === 'G2_SUPPLIER' ? '供应链模板'
-        : grade.code === 'G3_NURTURE' ? '生成补参短问'
-        : '生成专业英文邮件';
-      const actionBtnText = l.ai_analysis ? '查看/发送邮件' : escapeHtml(actionLabel);
+        : grade.code === 'G1_DECLINE' ? '拒绝函'
+        : grade.code === 'G2_SUPPLIER' ? '供应商回复'
+        : grade.code === 'G3_NURTURE' ? '补参短问'
+        : '写英文邮件';
+      const actionBtnText = l.ai_analysis ? '查看/发送' : escapeHtml(actionLabel);
+      const btnClass = l.ai_analysis ? 'btn-success'
+        : (grade.code === 'G5_RRFQ' || grade.code === 'G4_SPEC') ? 'btn-primary'
+        : 'btn-outline';
 
       const tr = document.createElement('tr');
       tr.dataset.id = l.id;
@@ -1481,12 +1534,12 @@
           </div>
           <div style="margin-top: 5px;">
             ${l.ai_analysis
-              ? '<span class="badge badge-success" style="font-size:10px; padding:1px 6px;">● 纯正英文就绪</span>'
+              ? '<span class="badge badge-success" style="font-size:10px; padding:1px 6px;">● 英文就绪</span>'
               : '<span class="badge" style="font-size:10px; padding:1px 6px; background:#f1f5f9; color:#64748b;">○ 待研判</span>'}
           </div>
         </td>
         <td class="cell-action">
-          <button class="btn btn-xs btn-primary btn-action-email" data-id="${escapeHtml(l.id)}">${actionBtnText}</button>
+          <button class="btn btn-xs ${btnClass} btn-action-email" data-id="${escapeHtml(l.id)}">${actionBtnText}</button>
         </td>
       `;
       el.leadsTableBody.appendChild(tr);

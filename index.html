@@ -20,37 +20,53 @@
       </div>
     </section>
 
-    <!-- 顶栏：标题与全局控制操作 -->
+    <!-- 顶栏：品牌标识与全局操作 -->
     <header class="hub-header">
-      <div class="hub-title-block">
-        <h1 class="hub-title">LinkedIn 原生 Lead Gen Form 销售线索资产库</h1>
-        <p class="hub-subtitle">真实客户线索已载入，由 TypeSafe Jev 自动完成意图研判、成熟度评分与跟进策略生成：</p>
+      <div class="hub-brand-group">
+        <div class="brand-badge">IPET SYSTEM</div>
+        <div class="hub-title-block">
+          <h1 class="hub-title">全球销售线索与工程决策中枢</h1>
+          <p class="hub-subtitle">工业无人机动力总成 · 官网 / 领英 / 企业邮全渠道线索清洗、AI 意图研判与海外邮件出信</p>
+        </div>
       </div>
       <div class="hub-actions">
-        <span class="sync-status-badge" id="cloudSyncStatus">
-          <span class="sync-dot"></span> 云端已全量同步
-        </span>
-        <button class="btn btn-sm btn-outline" id="btnSyncNow" title="立即与云端核对最新线索">刷新云端</button>
-        <button class="btn btn-sm btn-outline" id="btnCopyEnrollLink" title="复制发给同事的一键开通链接，对方点开即可使用">复制开通链接</button>
+        <div class="sync-status-badge" id="cloudSyncStatus" title="云端实时联机">
+          <span class="sync-dot"></span> 云端实时联机
+        </div>
+        <button class="btn btn-sm btn-primary" id="btnFocusPaste" title="展开/收起询盘快捷粘贴录入抽屉">
+          + 录入新询盘
+        </button>
         <input type="file" id="leadCsvFileInput" accept=".csv" style="display: none;">
-        <button class="btn btn-sm btn-primary" id="btnImportCsv">导入更多 CSV</button>
-        <button class="btn btn-sm btn-outline" id="btnFocusPaste">快捷粘贴录入</button>
-        <button class="btn btn-sm btn-outline btn-danger-text" id="btnClearCustom">清空本地导入</button>
+        <button class="btn btn-sm btn-outline" id="btnImportCsv" title="导入领英 Campaign Manager 下载的表单 CSV">
+          导入 CSV
+        </button>
+        <button class="btn btn-sm btn-outline" id="btnSyncNow" title="与云端同步最新数据">
+          刷新云端
+        </button>
+        <button class="btn btn-sm btn-outline" id="btnCopyEnrollLink" title="复制发给同事的一键开通链接">
+          分享链接
+        </button>
+        <button class="btn btn-sm btn-outline btn-danger-text" id="btnClearCustom" title="清空本地导入数据并重置为官方线索">
+          重置
+        </button>
       </div>
     </header>
 
-    <!-- 快捷粘贴录入新询盘卡片 -->
-    <section class="paste-card">
+    <!-- 快捷粘贴录入新询盘抽屉（默认收起，点击 + 录入新询盘 展开） -->
+    <section class="paste-card" id="pasteCard" hidden>
       <div class="paste-card-header">
-        <strong class="paste-card-title">快捷粘贴录入新询盘 / 后台留言 (支持多行表格自动解析)</strong>
-        <span class="paste-card-desc">支持直接复制后台表单键值对，系统自动结构化提取入库、秒级同步云端并即刻生成专业邮件</span>
+        <div class="paste-header-text">
+          <strong class="paste-card-title">快捷录入客户留言 / 邮件 / 表单</strong>
+          <span class="paste-card-desc">直接粘贴官网后台留言、邮件正文或微信多行文本，系统自动结构化提取、同步云端并即刻生成专业邮件</span>
+        </div>
+        <button class="btn btn-xs btn-outline" id="btnClosePasteCard" title="收起抽屉">✕ 收起</button>
       </div>
-      <textarea id="pasteLeadInput" class="paste-textarea" rows="2" placeholder="在此粘贴后台客户留言或邮件文本（例如包含 姓名: / 公司: / E-mail: / 电话: / 内容: / 无人机类型: / Project Stage: 等多行内容）..."></textarea>
+      <textarea id="pasteLeadInput" class="paste-textarea" rows="3" placeholder="在此粘贴客户留言、邮件正文或多行表单（例如包含 姓名: / 公司: / E-mail: / 电话: / 内容: / 无人机类型: / Project Stage: 等内容）..."></textarea>
       <div class="paste-card-footer">
         <span id="pasteSyncIndicator" class="paste-indicator"></span>
-        <button class="btn btn-sm btn-primary" id="btnPasteLead">解析预览</button>
+        <button class="btn btn-sm btn-outline" id="btnPasteLead">解析预览</button>
         <button class="btn btn-sm btn-primary" id="btnPasteConfirm" hidden>确认入库并生成邮件</button>
-        <button class="btn btn-sm btn-outline" id="btnPasteCancel" hidden>取消</button>
+        <button class="btn btn-sm btn-outline" id="btnPasteCancel">取消</button>
       </div>
 
       <!-- 解析预览：入库前人工核对识别结果 -->
@@ -60,14 +76,77 @@
       </div>
     </section>
 
-    <!-- 数据状态与研判控制条 -->
-    <div class="table-bar">
-      <div class="table-bar-left">
-        当前共载入 <strong id="leadCountNumber">0</strong> 条真实线索资产 (云端全网同步状态: <span class="status-online">实时联机</span>)
+    <!-- 销售漏斗与快筛指标卡片（点击卡片一键筛选） -->
+    <section class="kpi-grid" id="funnelBar">
+      <div class="kpi-card active" data-tier="" title="点击查看全部线索">
+        <div class="kpi-header">
+          <span class="kpi-title">全部线索</span>
+          <span class="kpi-pill">全部</span>
+        </div>
+        <div class="kpi-num" id="funnelTotal">0</div>
       </div>
-      <div class="table-bar-right">
-        <input type="search" id="leadSearchInput" class="lead-toolbar-input" placeholder="搜索姓名 / 公司 / 邮箱 / 需求...">
-        <select id="leadTierFilter" class="lead-toolbar-input" title="按意图分级筛选">
+
+      <div class="kpi-card kpi-card-g5" data-tier="G5_RRFQ" title="点击筛选 G5 热商机 (明确采购与图纸诉求)">
+        <div class="kpi-header">
+          <span class="kpi-title">G5 热商机</span>
+          <span class="kpi-pill pill-g5">高优先</span>
+        </div>
+        <div class="kpi-num" id="funnelT1">0</div>
+      </div>
+
+      <div class="kpi-card kpi-card-g4" data-tier="G4_SPEC" title="点击筛选 G4 规格需求 (特定机型/吨位/需选型)">
+        <div class="kpi-header">
+          <span class="kpi-title">G4 规格需求</span>
+          <span class="kpi-pill pill-g4">选型中</span>
+        </div>
+        <div class="kpi-num" id="funnelT2">0</div>
+      </div>
+
+      <div class="kpi-card kpi-card-g3" data-tier="G3_NURTURE" title="点击筛选 G3 培育线索 (低信息/需补参)">
+        <div class="kpi-header">
+          <span class="kpi-title">G3 培育线索</span>
+          <span class="kpi-pill pill-g3">待补参</span>
+        </div>
+        <div class="kpi-num" id="funnelT3">0</div>
+      </div>
+
+      <div class="kpi-card kpi-card-other" data-tier="G0_PASS,G1_DECLINE,G2_SUPPLIER" title="点击筛选 G0-G2 非买家 / 供应商外协">
+        <div class="kpi-header">
+          <span class="kpi-title">G0-G2 非买家</span>
+          <span class="kpi-pill pill-other">供应商/过滤</span>
+        </div>
+        <div class="kpi-num" id="funnelOther">0</div>
+      </div>
+
+      <div class="kpi-divider"></div>
+
+      <div class="kpi-card kpi-card-stat" title="已打开工作台生成过专业英文回复">
+        <div class="kpi-header">
+          <span class="kpi-title">已出英文草稿</span>
+          <span class="kpi-icon">✉️</span>
+        </div>
+        <div class="kpi-num" id="funnelEmailed">0</div>
+      </div>
+
+      <div class="kpi-card kpi-card-stat" title="已完成商务外发与跟进">
+        <div class="kpi-header">
+          <span class="kpi-title">已跟进</span>
+          <span class="kpi-icon">✅</span>
+        </div>
+        <div class="kpi-num" id="funnelFollowed">0</div>
+      </div>
+      
+      <span id="funnelPassed" style="display:none;">0</span>
+    </section>
+
+    <!-- 精准搜索与控制工具栏 -->
+    <div class="main-toolbar">
+      <div class="toolbar-left">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="search" id="leadSearchInput" class="search-input" placeholder="搜索姓名 / 公司 / 邮箱 / 核心参数...">
+        </div>
+        <select id="leadTierFilter" class="toolbar-select" title="按意图分级筛选">
           <option value="">全部分级</option>
           <option value="G5_RRFQ">G5 热商机 · RFQ</option>
           <option value="G4_SPEC">G4 资料 · 规格</option>
@@ -75,49 +154,32 @@
           <option value="G2_SUPPLIER">G2 供应商</option>
           <option value="G1_DECLINE">G1 跨界拒绝</option>
           <option value="G0_PASS">G0 无效 Pass</option>
-          <option value="TIER_1_READY_RFQ">（旧）Tier 1 RFQ</option>
-          <option value="TIER_2_TECH_SPEC">（旧）Tier 2 资料</option>
-          <option value="TIER_3_EXPLORATORY">（旧）Tier 3 初级</option>
-          <option value="DISQUALIFIED">（旧）无效</option>
         </select>
-        <select id="leadSortSelect" class="lead-toolbar-input" title="排序">
-          <option value="time_desc">按时间最新</option>
-          <option value="time_asc">按时间最早</option>
-          <option value="score_desc">按成熟度高</option>
-          <option value="score_asc">按成熟度低</option>
-          <option value="company_asc">按公司名</option>
+        <select id="leadSortSelect" class="toolbar-select" title="排序方式">
+          <option value="time_desc">最新优先</option>
+          <option value="time_asc">最早优先</option>
+          <option value="score_desc">成熟度高优先</option>
+          <option value="score_asc">成熟度低优先</option>
+          <option value="company_asc">按公司字母</option>
         </select>
-        <button class="btn btn-xs btn-outline" id="btnExportCsv" title="导出当前筛选结果为 CSV">导出 CSV</button>
-        <button class="btn btn-xs btn-outline" id="btnMailSync" title="从企业邮 (wally@ipetsystem.com) 抓取客户回复并匹配线索 (Shift+点击可将未建档业务邮件直接入库)">收企业邮回复</button>
-        <span id="reevaluateStatus" class="reevaluate-status"></span>
-        <button class="btn btn-xs btn-outline" id="btnReevaluateAllJev" title="增量重研判（仅更新过期/缺失/文本变更线索）。Shift+点击 = 强制全量重新研判。">
-          重新研判 (增量)
+      </div>
+
+      <div class="toolbar-right">
+        <span class="leads-counter-text">
+          共 <strong id="leadCountNumber">0</strong> 条资产
+        </span>
+        <button class="btn btn-sm btn-outline" id="btnMailSync" title="从企业邮 (wally@ipetsystem.com) 抓取客户回复并匹配线索 (Shift+点击可将未建档业务邮件直接入库)">
+          收企业邮回复
         </button>
+        <button class="btn btn-sm btn-outline" id="btnReevaluateAllJev" title="增量重研判（仅更新过期/缺失/文本变更线索）。Shift+点击 = 强制全量重新研判。">
+          重新研判
+        </button>
+        <button class="btn btn-sm btn-outline" id="btnExportCsv" title="导出当前筛选结果为 CSV">
+          导出 CSV
+        </button>
+        <span id="reevaluateStatus" class="reevaluate-status"></span>
       </div>
     </div>
-
-    <!-- 漏斗统计：分级结构 + 跟进进度 -->
-    <section class="funnel-bar" id="funnelBar" title="分级=当前有效线索结构；进度=跟进动作口径">
-      <div class="funnel-group">
-        <div class="funnel-item"><span class="funnel-label">线索总量</span><strong id="funnelTotal">0</strong></div>
-        <div class="funnel-arrow">→</div>
-        <div class="funnel-item"><span class="funnel-label">G5 热商机</span><strong id="funnelT1">0</strong></div>
-        <div class="funnel-arrow">→</div>
-        <div class="funnel-item"><span class="funnel-label">G4 规格</span><strong id="funnelT2">0</strong></div>
-        <div class="funnel-arrow">→</div>
-        <div class="funnel-item"><span class="funnel-label">G3 培育</span><strong id="funnelT3">0</strong></div>
-        <div class="funnel-arrow">→</div>
-        <div class="funnel-item"><span class="funnel-label">G0-G2 非买家</span><strong id="funnelOther">0</strong></div>
-      </div>
-      <div class="funnel-sep"></div>
-      <div class="funnel-group">
-        <div class="funnel-item" title="打开过邮件工作台并生成过正文（含拒绝/补参）"><span class="funnel-label">已出邮件草稿</span><strong id="funnelEmailed">0</strong></div>
-        <div class="funnel-arrow">→</div>
-        <div class="funnel-item" title="复制/发送后点击「已跟进」，或批量标记已跟进"><span class="funnel-label">已跟进</span><strong id="funnelFollowed">0</strong></div>
-        <div class="funnel-arrow">→</div>
-        <div class="funnel-item" title="标记 Pass 并归档，不外发"><span class="funnel-label">已 Pass 归档</span><strong id="funnelPassed">0</strong></div>
-      </div>
-    </section>
 
     <!-- 批量操作条 -->
     <div class="batch-bar" id="batchBar">
