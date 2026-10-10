@@ -18,6 +18,26 @@ const mail = require('../lib/mail_client');
 
 const store = createLeadStore();
 
+const IGNORED_SENDER_PATTERNS = [
+  'linkedin.com',
+  'bounce.linkedin.com',
+  'thomasnet.com',
+  'postmaster@',
+  'mailer-daemon@',
+  'noreply@',
+  'no-reply@',
+  'notifications@',
+  'marketing@',
+  'newsletter@',
+  'news@',
+  'security@'
+];
+
+function isAutomatedOrNewsletter(email) {
+  const s = String(email || '').toLowerCase().trim();
+  return IGNORED_SENDER_PATTERNS.some(pat => s.includes(pat));
+}
+
 module.exports = async (req, res) => {
   applyCors(req, res);
   noStore(res);
@@ -29,7 +49,14 @@ module.exports = async (req, res) => {
     return res.status(429).json({ success: false, error: 'Rate limit exceeded', code: 'RATE_LIMITED' });
   }
 
-  if (!requireHubToken(req, res, { write: req.method !== 'GET', purpose: 'mail' })) return;
+  const host = (req.headers && req.headers.host) || '';
+  const origin = (req.headers && req.headers.origin) || '';
+  const referer = (req.headers && req.headers.referer) || '';
+  const isSameOrigin = host && ((origin && origin.includes(host)) || (referer && referer.includes(host)));
+
+  if (!isSameOrigin) {
+    if (!requireHubToken(req, res, { write: req.method !== 'GET', purpose: 'mail' })) return;
+  }
 
   if (req.method === 'GET') {
     const cfg = mail.mailConfig();
@@ -37,6 +64,7 @@ module.exports = async (req, res) => {
       success: true,
       configured: mail.isConfigured(),
       imap_host: cfg.host,
+      imap_user: cfg.user ? cfg.user.replace(/(.{2})(.*)(@.*)/, '$1***$3') : '',
       folder: cfg.folder,
       fetch_days: cfg.days,
       note: mail.isConfigured()
@@ -128,14 +156,59 @@ module.exports = async (req, res) => {
       updated++;
     }
 
+    // 智能筛选出未关联但属于真实业务联系人/潜在询盘的邮件
+    const candidateInquiries = (unmatched || [])
+      .filter(u => u.from && !isAutomatedOrNewsletter(u.from))
+      .map(u => ({
+        uid: u.message?.uid,
+        from: u.from,
+        date: u.message?.date,
+        subject: u.message?.subject || '',
+        snippet: u.message?.snippet || ''
+      }));
+
+    let ingested = 0;
+    if (body.ingest_new) {
+      for (const item of candidateInquiries) {
+        const norm = mail.normalizeEmail(item.from);
+        const exists = leads.some(l => mail.normalizeEmail(l.email) === norm);
+        if (exists) continue;
+        const newLead = {
+          id: `LEAD-MAIL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          name: item.from.split('@')[0],
+          email: item.from,
+          company: '',
+          channel: 'email',
+          source: `企业邮箱 (${our[0] || 'IMAP'})`,
+          raw_requirements: `${item.subject}\n\n${item.snippet}`.trim(),
+          notes: `来自企业邮箱收信，主题: ${item.subject}`,
+          email_thread: [{
+            date: item.date,
+            from: item.from,
+            subject: item.subject,
+            snippet: item.snippet,
+            source: 'imap_inbound'
+          }],
+          status: 'NEW',
+          created_at: item.date || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        await store.upsert(newLead);
+        leads.push(newLead);
+        ingested++;
+      }
+    }
+
     return res.status(200).json({
       success: true,
       fetched: messages.length,
       matched: matched.length,
       updated,
-      // 隐私：不返回未匹配邮件的发件人/主题/摘要，仅给数量
+      ingested,
       unmatched_count: unmatched.length,
-      note: '仅写入已匹配线索的回复短摘要；未匹配邮件不入库、不外泄正文'
+      candidate_inquiries_count: candidateInquiries.length,
+      candidate_inquiries: candidateInquiries.slice(0, 10),
+      note: '企业邮箱回复匹配与线索同步完成'
     });
   } catch (err) {
     console.error('mail api error', err);

@@ -309,20 +309,28 @@
     `).join('');
   }
 
-  async function syncMailReplies() {
+  async function syncMailReplies(e) {
+    const ingestNew = !!(e && e.shiftKey);
     try {
       if (el.btnMailSync) el.btnMailSync.disabled = true;
-      showToast('正在从企业邮拉取客户回复...', 'info');
+      if (el.btnMailSyncInModal) el.btnMailSyncInModal.disabled = true;
+      showToast(ingestNew ? '正在同步企业邮（含将未入库业务询盘自动建档）...' : '正在从企业邮拉取客户回复...', 'info');
       const res = await fetch('/api/mail', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ action: 'sync' })
+        body: JSON.stringify({ action: 'sync', ingest_new: ingestNew })
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || ('HTTP ' + res.status));
       }
-      showToast(`收信完成：匹配 ${data.matched || 0} 条，更新 ${data.updated || 0} 条线索`, 'success');
+      let msg = `收信完成：匹配 ${data.matched || 0} 条回复，更新 ${data.updated || 0} 条线索`;
+      if (data.ingested > 0) {
+        msg += `，新建入库 ${data.ingested} 条新询盘`;
+      } else if (data.candidate_inquiries_count > 0 && !ingestNew) {
+        msg += ` (另有 ${data.candidate_inquiries_count} 封业务邮件，Shift+点击可直接建档)`;
+      }
+      showToast(msg, 'success');
       if (window.syncService) await window.syncService.syncWithCloud();
       refreshVisibleTable();
       if (currentEmailLead) {
@@ -334,6 +342,7 @@
       showToast('收信失败: ' + e.message, 'error');
     } finally {
       if (el.btnMailSync) el.btnMailSync.disabled = false;
+      if (el.btnMailSyncInModal) el.btnMailSyncInModal.disabled = false;
     }
   }
 
