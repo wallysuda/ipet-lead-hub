@@ -327,48 +327,18 @@
         throw new Error(data.error || ('HTTP ' + res.status));
       }
 
-      // 实时接收并建档新线索入库（无需等待云端回合）
+      // 实时接收更新与新入库线索（已在 SyncService 层严格按邮箱去重并合并）
       let localAdded = 0;
       if (window.syncService) {
         if (Array.isArray(data.updated_leads) && data.updated_leads.length > 0) {
           for (const ul of data.updated_leads) {
-            await window.syncService.ingestLead(ul, { allowDuplicate: true });
+            await window.syncService.ingestLead(ul);
           }
         }
         if (Array.isArray(data.new_leads) && data.new_leads.length > 0) {
           for (const nl of data.new_leads) {
-            await window.syncService.ingestLead(nl, { allowDuplicate: false });
+            await window.syncService.ingestLead(nl);
             localAdded++;
-          }
-        }
-        if (Array.isArray(data.candidate_inquiries) && data.candidate_inquiries.length > 0) {
-          const all = window.syncService.getAllLeads() || [];
-          for (const item of data.candidate_inquiries) {
-            const exists = all.some(l => (l.email || '').toLowerCase().trim() === (item.from || '').toLowerCase().trim());
-            if (!exists && item.from) {
-              const newLead = {
-                id: `LEAD-MAIL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-                name: item.from.split('@')[0],
-                email: item.from,
-                company: '',
-                channel: 'email',
-                source: '企业邮箱 (IMAP)',
-                channel_source: '企业邮箱抓取',
-                channel_scenario: `来自 wally@ipetsystem.com 邮件 · 主题: ${item.subject || ''}`,
-                raw_requirements: `${item.subject || ''}\n\n${item.snippet || ''}`.trim(),
-                notes: `来自企业邮箱收件箱，主题: ${item.subject || ''}`,
-                email_thread: [{
-                  date: item.date || new Date().toISOString(),
-                  from: item.from,
-                  subject: item.subject,
-                  snippet: item.snippet,
-                  source: 'imap_inbound'
-                }],
-                status: 'NEW'
-              };
-              await window.syncService.ingestLead(newLead, { allowDuplicate: true });
-              localAdded++;
-            }
           }
         }
       }

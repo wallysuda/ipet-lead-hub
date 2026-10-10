@@ -71,13 +71,38 @@ class SyncService {
     }
   }
 
-  // 从 LocalStorage 加载
+  // 从 LocalStorage 加载（并自动进行强力去重）
   loadFromLocal() {
     if (typeof localStorage === 'undefined') return;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        this.leads = JSON.parse(raw);
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          // 强力去重：同邮箱只保留信息最完整、得分最高的一条
+          const seen = new Map();
+          const clean = [];
+          for (const item of list) {
+            const em = (item.email || '').trim().toLowerCase();
+            if (em) {
+              if (seen.has(em)) {
+                const prev = seen.get(em);
+                const preferItem = (!prev.company && item.company) ||
+                  ((item.jev_analysis?.maturity_score || 0) > (prev.jev_analysis?.maturity_score || 0));
+                if (preferItem) {
+                  const idx = clean.indexOf(prev);
+                  clean[idx] = item;
+                  seen.set(em, item);
+                }
+                continue;
+              }
+              seen.set(em, item);
+            }
+            clean.push(item);
+          }
+          this.leads = clean;
+          this.saveToLocal();
+        }
       }
     } catch (e) {
       console.error('[SyncService] Failed to load from localStorage:', e);
@@ -198,6 +223,38 @@ class SyncService {
 
   // 新增入库单条线索 (带 AI 意图判定与智能查重)
   async ingestLead(normalizedLead, options = { allowDuplicate: false }) {
+    if (!normalizedLead) return { success: false, error: 'empty_lead' };
+    const candEmail = (normalizedLead.email || '').trim().toLowerCase();
+
+    // 0. 强去重：若已有同邮箱或同ID线索，永远智能合并，绝不创建两行重复数据
+    const existingIndex = this.leads.findIndex(l => 
+      (normalizedLead.id && l.id === normalizedLead.id) ||
+      (candEmail && l.email && l.email.trim().toLowerCase() === candEmail)
+    );
+
+    if (existingIndex !== -1) {
+      const existing = this.leads[existingIndex];
+      const merged = {
+        ...existing,
+        ...normalizedLead,
+        id: existing.id,
+        name: existing.name && existing.name !== candEmail.split('@')[0] ? existing.name : (normalizedLead.name || existing.name),
+        company: existing.company || normalizedLead.company || '',
+        job_title: existing.job_title || normalizedLead.job_title || '',
+        email_thread: [
+          ...(existing.email_thread || []),
+          ...((normalizedLead.email_thread || []).filter(nt => 
+            !(existing.email_thread || []).some(et => et.snippet === nt.snippet && et.date === nt.date)
+          ))
+        ],
+        updated_at: new Date().toISOString()
+      };
+      this.leads[existingIndex] = merged;
+      this.saveToLocal();
+      this.notify();
+      return { success: true, duplicate: true, lead: merged };
+    }
+
     // 1. 查重检验
     const dupCheck = this.checkDuplicate(normalizedLead);
     if (dupCheck.isDuplicate && !options.allowDuplicate) {
@@ -339,34 +396,33 @@ class SyncService {
       const cloudLeads = Array.isArray(cloudData) ? cloudData : (cloudData.leads || []);
 
       if (Array.isArray(cloudLeads)) {
-        // 双向合并策略：按 ID 对齐，优先 sync_version，其次 updated_at；墓碑覆盖旧数据
+        // 双向合并策略：按 ID 与 Email 双重强去重，优先保留高分与完整记录
         const mergedMap = new Map();
+        const emailToId = new Map();
 
-        // 先放入本地
-        this.leads.forEach(l => mergedMap.set(l.id, l));
-
-        // 合并云端
-        cloudLeads.forEach(cLead => {
-          if (!mergedMap.has(cLead.id)) {
-            mergedMap.set(cLead.id, cLead);
-            return;
-          }
-          const local = mergedMap.get(cLead.id);
-          const localVer = local.sync_version || 0;
-          const cloudVer = cLead.sync_version || 0;
-          if (cloudVer > localVer) {
-            mergedMap.set(cLead.id, cLead);
-            return;
-          }
-          if (cloudVer === localVer) {
-            const cloudTime = new Date(cLead.updated_at || cLead.created_at || 0).getTime();
-            const localTime = new Date(local.updated_at || local.created_at || 0).getTime();
-            // 任一侧墓碑且更新，保留墓碑，防止已删线索复活
-            if (cloudTime > localTime) {
-              mergedMap.set(cLead.id, cLead);
+        const addOrMerge = (lead) => {
+          if (!lead) return;
+          const email = (lead.email || '').trim().toLowerCase();
+          if (email && emailToId.has(email)) {
+            const existingId = emailToId.get(email);
+            const existing = mergedMap.get(existingId);
+            if (existing) {
+              const preferNew = (!existing.company && lead.company) ||
+                ((lead.jev_analysis?.maturity_score || 0) > (existing.jev_analysis?.maturity_score || 0));
+              if (preferNew) {
+                mergedMap.delete(existingId);
+                mergedMap.set(lead.id, lead);
+                emailToId.set(email, lead.id);
+              }
+              return;
             }
           }
-        });
+          mergedMap.set(lead.id, lead);
+          if (email) emailToId.set(email, lead.id);
+        };
+
+        this.leads.forEach(addOrMerge);
+        cloudLeads.forEach(addOrMerge);
 
         // 转回数组并按时间倒序排列
         this.leads = Array.from(mergedMap.values()).sort((a, b) => {
