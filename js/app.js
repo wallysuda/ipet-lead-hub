@@ -330,6 +330,11 @@
       // 实时接收并建档新线索入库（无需等待云端回合）
       let localAdded = 0;
       if (window.syncService) {
+        if (Array.isArray(data.updated_leads) && data.updated_leads.length > 0) {
+          for (const ul of data.updated_leads) {
+            await window.syncService.ingestLead(ul, { allowDuplicate: true });
+          }
+        }
         if (Array.isArray(data.new_leads) && data.new_leads.length > 0) {
           for (const nl of data.new_leads) {
             await window.syncService.ingestLead(nl, { allowDuplicate: false });
@@ -1271,6 +1276,7 @@
     const fullT = ((lead.raw_text || '') + ' ' + (lead.raw_requirements || '') + ' ' + JSON.stringify(lead.fields_filled || {}) + ' ' + ((lead.ai_analysis && lead.ai_analysis.core_pain_points) || '')).toLowerCase();
     
     // 优先标准化工程机型标签
+    if (fullT.includes('coaxcopter') || fullT.includes('coaxial') || fullT.includes('共轴双旋翼')) return '共轴动力 · 选型';
     if (fullT.includes('17kg') || fullT.includes('17 kg')) return '17kg VTOL · I8';
     if (fullT.includes('65kg') || fullT.includes('65 kg')) return '65kg 重载多旋翼';
     if (fullT.includes('40kg') || fullT.includes('40 kg')) return '40kg 共轴八旋翼';

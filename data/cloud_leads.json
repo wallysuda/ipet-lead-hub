@@ -1,5 +1,81 @@
 [
   {
+    "id": "LEAD-MAIL-1790620000000-201",
+    "submitted_at": "2026-09-28 17:35",
+    "created_at": "2026-09-28T17:35:53.000Z",
+    "updated_at": "2026-10-10T11:10:00.000Z",
+    "channel_source": "企业邮箱抓取",
+    "channel_scenario": "来自 wally@ipetsystem.com 邮件 · 主题: Re: Propulsion envelope inquiry for Spectaether",
+    "channel": "email",
+    "source": "企业邮箱 (IMAP)",
+    "name": "Hugo W. van Rhi",
+    "email": "hugo@flaight.com",
+    "company": "Flaight",
+    "job_title": "Founder & Aeronautical Engineer",
+    "phone": "",
+    "country": "Canada",
+    "raw_text": "From: Hugo W. van Rhi <hugo@flaight.com> Subject: Re: Propulsion envelope inquiry for Spectaether (Hugo) Date: 2026-09-28 17:35:53 Thank you Wally for your answer. One more question: do you guys have any experience with a coaxcopter propulsion solution? Warmest regards from Atlantic Canada Hugo Hugo W. van Rhi",
+    "raw_requirements": "Propulsion envelope inquiry for Spectaether (Hugo)\n\nThank you Wally for your answer. One more question: do you guys have any experience with a coaxcopter propulsion solution? Warmest regards from Atlantic Canada Hugo Hugo W. van Rhi",
+    "fields_filled": {
+      "客户姓名": "Hugo W. van Rhi",
+      "企业邮箱": "hugo@flaight.com",
+      "企业": "Flaight",
+      "地区": "Atlantic Canada",
+      "飞行器形态": "共轴双旋翼 (Coaxcopter)",
+      "咨询产品": "共轴动力总成匹配方案 (Coaxial Propulsion Solution)",
+      "采购诉求": "咨询是否有共轴双旋翼动力系统选型经验与推力台架匹配数据"
+    },
+    "analysis_brief": {
+      "采购诉求": "共轴双旋翼动力总成选型与经验咨询 (Coaxcopter Propulsion RFQ)",
+      "飞行器形态": "共轴双旋翼 (Coaxcopter / Coaxial Dual)",
+      "研发阶段": "概念论证与动力包袱匹配阶段 (Propulsion Envelope Inquiry)",
+      "应用场景": "Spectaether 特种无人机飞行器",
+      "核心关切": "是否有共轴双旋翼 (coaxcopter) 现成动力总成匹配经验及台架实测数据"
+    },
+    "detected_params": {
+      "mtow": "",
+      "voltage": "",
+      "payload": "",
+      "thrust": "",
+      "propeller": "",
+      "uav_type": "共轴双旋翼 (Coaxcopter)",
+      "stage": "Propulsion Envelope Design",
+      "quantity": ""
+    },
+    "technical_parameters": {
+      "mtow": "",
+      "voltage": "",
+      "payload": "",
+      "thrust": "",
+      "propeller": "",
+      "uav_type": "共轴双旋翼 (Coaxcopter)",
+      "stage": "Propulsion Envelope Design",
+      "quantity": ""
+    },
+    "email_thread": [
+      {
+        "date": "2026-09-28T17:35:53.000Z",
+        "from": "hugo@flaight.com",
+        "subject": "Re: Propulsion envelope inquiry for Spectaether (Hugo) ",
+        "snippet": "Thank you Wally for your answer. One more question: do you guys have any experience with a coaxcopter propulsion solution? Warmest regards from Atlantic Canada Hugo Hugo W. van Rhi",
+        "source": "imap_inbound"
+      }
+    ],
+    "status": "replied",
+    "last_reply_at": "2026-09-28T17:35:53.000Z",
+    "last_reply_snippet": "Thank you Wally for your answer. One more question: do you guys have any experience with a coaxcopter propulsion solution? Warmest regards from Atlantic Canada Hugo",
+    "sync_version": 1,
+    "jev_analysis": {
+      "tier": "TIER_1_READY_RFQ",
+      "maturity_score": 4.6,
+      "has_pet_confusion": false,
+      "confidence": 0.98,
+      "recommended_action": "高价值真实买家回复！正在推进共轴双旋翼动力选型。请立即提供共轴推力曲线与选型建议。",
+      "source": "jev_live",
+      "model": "jev-1.13.0"
+    }
+  },
+  {
     "id": "LEAD-HUB-1790240886544-427",
     "submitted_at": "2026-09-24 17:08",
     "channel_source": "外部官网 WordPress Webhook",

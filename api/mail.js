@@ -211,11 +211,16 @@ module.exports = async (req, res) => {
       }
     }
 
+    const updatedLeads = matched
+      .map(m => leads.find(l => l.id === m.lead_id))
+      .filter(Boolean);
+
     return res.status(200).json({
       success: true,
       fetched: messages.length,
       matched: matched.length,
       updated,
+      updated_leads: updatedLeads,
       ingested,
       new_leads: ingestedLeads,
       unmatched_count: unmatched.length,
