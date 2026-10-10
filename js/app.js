@@ -1130,6 +1130,9 @@
           el.btnReevaluateAllJev.disabled = false;
         }
       });
+    }
+  }
+
   // 智能解析线索来源渠道与转化场景 (纯文本与规范类名)
   function resolveLeadSourceChannel(lead) {
     const sourceStr = String(lead.channel_source || lead.channel || lead.source || '').toLowerCase();
