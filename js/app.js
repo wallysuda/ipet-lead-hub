@@ -312,11 +312,11 @@
   }
 
   async function syncMailReplies(e) {
-    const ingestNew = !!(e && e.shiftKey);
+    const ingestNew = true; // 始终开启自动抓取新询盘并建档
     try {
       if (el.btnMailSync) el.btnMailSync.disabled = true;
       if (el.btnMailSyncInModal) el.btnMailSyncInModal.disabled = true;
-      showToast(ingestNew ? '正在同步企业邮（含将未入库业务询盘自动建档）...' : '正在从企业邮拉取客户回复...', 'info');
+      showToast('正在连接腾讯企业邮 (wally@ipetsystem.com) 同步邮件与商机...', 'info');
       const res = await fetch('/api/mail', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -326,11 +326,9 @@
       if (!res.ok || !data.success) {
         throw new Error(data.error || ('HTTP ' + res.status));
       }
-      let msg = `收信完成：匹配 ${data.matched || 0} 条回复，更新 ${data.updated || 0} 条线索`;
+      let msg = `邮箱同步完成：匹配 ${data.matched || 0} 条客户回复，更新 ${data.updated || 0} 条线索`;
       if (data.ingested > 0) {
-        msg += `，新建入库 ${data.ingested} 条新询盘`;
-      } else if (data.candidate_inquiries_count > 0 && !ingestNew) {
-        msg += ` (另有 ${data.candidate_inquiries_count} 封业务邮件，Shift+点击可直接建档)`;
+        msg += `，自动建档入库 ${data.ingested} 条新询盘！`;
       }
       showToast(msg, 'success');
       if (window.syncService) await window.syncService.syncWithCloud();
@@ -1132,35 +1130,59 @@
           el.btnReevaluateAllJev.disabled = false;
         }
       });
-    }
-  }
-
   // 智能解析线索来源渠道与转化场景 (纯文本与规范类名)
   function resolveLeadSourceChannel(lead) {
-    if (lead.channel_source && lead.channel_scenario) {
-      let badge = "badge-info";
-      if (lead.channel_source.includes("官网")) badge = "badge-success";
-      else if (lead.channel_source.includes("DroneX") || lead.channel_source.includes("展会")) badge = "badge-warn";
+    const sourceStr = String(lead.channel_source || lead.channel || lead.source || '').toLowerCase();
+    const idStr = String(lead.id || '');
+    const fullText = ((lead.raw_text || "") + " " + (lead.raw_requirements || "") + " " + (lead.form_name || "") + " " + (lead.email || "") + " " + (lead.company || "") + " " + (lead.notes || "") + " " + JSON.stringify(lead.fields_filled || {})).toLowerCase();
+
+    // 0. 企业邮箱自动抓取 (IMAP)
+    if (sourceStr.includes("imap") || sourceStr.includes("email") || sourceStr.includes("企业邮") || idStr.startsWith("LEAD-MAIL-") || (lead.email_thread && lead.email_thread.some(t => t.source && t.source.includes('imap')))) {
       return {
-        channel: lead.channel_source,
-        badgeClass: badge,
-        scenario: lead.channel_scenario
+        channel: "企业邮箱抓取",
+        badgeClass: "badge-purple",
+        scenario: lead.channel_scenario || (lead.notes ? lead.notes.replace(/^来自企业邮箱收信[，:：\s]*/, '') : '腾讯企业邮 (wally@ipetsystem.com)')
       };
     }
 
-    const fullText = ((lead.raw_text || "") + " " + (lead.raw_requirements || "") + " " + (lead.form_name || "") + " " + (lead.email || "") + " " + (lead.company || "") + " " + JSON.stringify(lead.fields_filled || {})).toLowerCase();
+    // 1. 手工录入 / 快捷粘贴
+    if (sourceStr.includes("粘贴") || sourceStr.includes("manual") || idStr.startsWith("LEAD-PASTE-") || lead.source === "多渠道粘贴录入") {
+      return {
+        channel: "手动粘贴录入",
+        badgeClass: "badge-info",
+        scenario: lead.channel_scenario || "工作台快捷录入"
+      };
+    }
 
-    // 1. DroneX / 国际航展线下对接渠道
+    // 2. CSV 批量导入
+    if (sourceStr.includes("csv") || lead.source === "CSV导入") {
+      return {
+        channel: "CSV 导入",
+        badgeClass: "badge-neutral",
+        scenario: lead.channel_scenario || "历史表格批量导入"
+      };
+    }
+
+    // 3. 外部官网 WordPress Webhook
+    if (sourceStr.includes("webhook") || sourceStr.includes("wordpress") || fullText.includes("webhook")) {
+      return {
+        channel: "官网 Webhook",
+        badgeClass: "badge-success",
+        scenario: lead.channel_scenario || "外部官网 API 实时推送"
+      };
+    }
+
+    // 4. DroneX / 国际航展线下对接渠道
     if (fullText.includes("dronex") || fullText.includes("trade show") || fullText.includes("booth") || fullText.includes("kaixin") || fullText.includes("kxprecision") || fullText.includes("展台") || fullText.includes("展会")) {
       return {
         channel: "DroneX 展会对接",
         badgeClass: "badge-warn",
-        scenario: "2026 伦敦航展展位预约 (Booth Meeting)"
+        scenario: lead.channel_scenario || "2026 伦敦航展展位预约 (Booth Meeting)"
       };
     }
 
-    // 2. 官网独立站询盘渠道
-    if (fullText.includes("ecshop") || fullText.includes("留言") || lead.form_name === 'IPET客户留言' || lead.form_name === '邮件快捷解析入库' || fullText.includes("gremsy") || fullText.includes("baaco") || fullText.includes("matzka")) {
+    // 5. 官网独立站询盘渠道
+    if (sourceStr.includes("官网") || fullText.includes("ipetsystem.com") || fullText.includes("contact form") || fullText.includes("rfq") || fullText.includes("inquiry") || fullText.includes("ecshop") || fullText.includes("留言") || lead.form_name === 'IPET客户留言' || lead.form_name === '邮件快捷解析入库' || fullText.includes("gremsy") || fullText.includes("baaco") || fullText.includes("matzka")) {
       let scenario = "官网商业采购与技术选型";
       if (fullText.includes("baaco") || (lead.job_title || "").toLowerCase().includes("purchasing") || (lead.job_title || "").toLowerCase().includes("procurement")) {
         scenario = "商业采购与规格对接 (Procurement RFQ)";
@@ -1178,34 +1200,46 @@
       };
     }
 
-    // 3. LinkedIn 广告原生转化表单
+    // 6. 默认保留现有已设定的 channel_source / channel_scenario
+    if (lead.channel_source && lead.channel_scenario) {
+      let badge = "badge-info";
+      if (lead.channel_source.includes("官网")) badge = "badge-success";
+      else if (lead.channel_source.includes("DroneX") || lead.channel_source.includes("展会")) badge = "badge-warn";
+      return {
+        channel: lead.channel_source,
+        badgeClass: badge,
+        scenario: lead.channel_scenario
+      };
+    }
+
+    // 7. LinkedIn 广告原生转化表单
     return {
-      channel: "LinkedIn 广告转化",
-      badgeClass: "badge-info",
+      channel: "LinkedIn 广告",
+      badgeClass: "badge-primary-light",
       scenario: lead.form_name || "原生潜客表单 (Lead Gen Form)"
     };
   }
 
   // 智能识别机型形态与核心工况标签
   function resolveEngineeringTag(lead) {
-    if (lead.ai_analysis) {
-      if (lead.ai_analysis.core_pain_points) {
-        const m = lead.ai_analysis.core_pain_points.match(/(\d+\s*kg[^\n，,、]+(?:vtol|多旋翼|无人机|固定翼)?)/i);
-        if (m) return m[1].slice(0, 24);
-      }
-      if (lead.ai_analysis.persona && lead.ai_analysis.persona.includes('VTOL')) {
-        return '17kg VTOL · I8';
-      }
-    }
-    const fullT = ((lead.raw_text || '') + ' ' + (lead.raw_requirements || '') + ' ' + JSON.stringify(lead.fields_filled || {})).toLowerCase();
+    const fullT = ((lead.raw_text || '') + ' ' + (lead.raw_requirements || '') + ' ' + JSON.stringify(lead.fields_filled || {}) + ' ' + ((lead.ai_analysis && lead.ai_analysis.core_pain_points) || '')).toLowerCase();
+    
+    // 优先标准化工程机型标签
     if (fullT.includes('17kg') || fullT.includes('17 kg')) return '17kg VTOL · I8';
     if (fullT.includes('65kg') || fullT.includes('65 kg')) return '65kg 重载多旋翼';
-    if (fullT.includes('gimbal') || fullT.includes('gremsy')) return '三轴云台 · 选型';
+    if (fullT.includes('40kg') || fullT.includes('40 kg')) return '40kg 共轴八旋翼';
+    if (fullT.includes('gimbal') || fullT.includes('gremsy')) return '三轴云台 · 载荷选型';
     if (fullT.includes('dronex') || fullT.includes('kaixin')) return 'DroneX 展位对接';
     if (fullT.includes('microelectronics') || fullT.includes('wire bonding')) return '微电子封装外协';
     if (fullT.includes('vtol')) return 'VTOL 垂直起降';
-    if (fullT.includes('i8')) return 'I8 重载动力';
-    if (fullT.includes('i7')) return 'I7 动力系统';
+    if (fullT.includes('i8')) return 'I8 重载动力总成';
+    if (fullT.includes('i7')) return 'I7 一体化动力系统';
+    
+    // 兜底提取短标签，过滤括号和长句子
+    if (lead.ai_analysis && lead.ai_analysis.core_pain_points) {
+      const m = lead.ai_analysis.core_pain_points.match(/(\d+\s*kg\s*[a-zA-Z\u4e00-\u9fa5]+)/i);
+      if (m && m[1]) return m[1].replace(/[（(].*$/, '').trim();
+    }
     return '';
   }
 

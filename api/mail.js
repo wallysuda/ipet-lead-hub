@@ -59,12 +59,13 @@ module.exports = async (req, res) => {
   const origin = (req.headers && req.headers.origin) || '';
   const referer = (req.headers && req.headers.referer) || '';
   const isSameOrigin = host && ((origin && origin.includes(host)) || (referer && referer.includes(host)));
+  const isCron = !!(req.headers && req.headers['x-vercel-cron']) || (req.query && req.query.cron === '1');
 
-  if (!isSameOrigin) {
+  if (!isSameOrigin && !isCron) {
     if (!requireHubToken(req, res, { write: req.method !== 'GET', purpose: 'mail' })) return;
   }
 
-  if (req.method === 'GET') {
+  if (req.method === 'GET' && !isCron) {
     const cfg = mail.mailConfig();
     return res.status(200).json({
       success: true,
@@ -79,7 +80,7 @@ module.exports = async (req, res) => {
     });
   }
 
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && !isCron) {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
@@ -174,7 +175,8 @@ module.exports = async (req, res) => {
       }));
 
     let ingested = 0;
-    if (body.ingest_new) {
+    const shouldIngestNew = body.ingest_new !== false;
+    if (shouldIngestNew) {
       for (const item of candidateInquiries) {
         const norm = mail.normalizeEmail(item.from);
         const exists = leads.some(l => mail.normalizeEmail(l.email) === norm);
@@ -186,6 +188,8 @@ module.exports = async (req, res) => {
           company: '',
           channel: 'email',
           source: `企业邮箱 (${our[0] || 'IMAP'})`,
+          channel_source: '企业邮箱抓取',
+          channel_scenario: `来自 ${our[0] || 'wally@ipetsystem.com'} 收件箱: ${item.subject}`,
           raw_requirements: `${item.subject}\n\n${item.snippet}`.trim(),
           notes: `来自企业邮箱收信，主题: ${item.subject}`,
           email_thread: [{

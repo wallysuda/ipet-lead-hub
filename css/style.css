@@ -616,24 +616,26 @@ body {
 }
 
 .cell-email {
-  overflow-wrap: anywhere;
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cell-email a {
   color: #2563eb;
   text-decoration: none;
   font-family: var(--font-mono);
-  font-size: 11px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-all;
-  display: inline-block;
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
   max-width: 100%;
 }
 .cell-email a:hover { text-decoration: underline; }
 
 .cell-org {
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cell-org strong {
   font-size: 12px;
@@ -691,6 +693,11 @@ body {
   padding: 1px 6px;
   border-radius: 4px;
   line-height: 1.35;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 .req-row {
@@ -808,6 +815,24 @@ body {
   background: rgba(220, 38, 38, 0.1);
   color: #dc2626;
   border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.badge-purple {
+  background: rgba(147, 51, 234, 0.1);
+  color: #7e22ce;
+  border: 1px solid rgba(147, 51, 234, 0.28);
+}
+
+.badge-neutral {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.badge-primary-light {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }
 
 .badge-jev-live {
