@@ -34,8 +34,15 @@ module.exports = async (req, res) => {
     return res.status(429).json({ success: false, error: 'Rate limit exceeded', code: 'RATE_LIMITED' });
   }
 
+  const host = (req.headers && req.headers.host) || '';
+  const origin = (req.headers && req.headers.origin) || '';
+  const referer = (req.headers && req.headers.referer) || '';
+  const isSameOrigin = host && ((origin && origin.includes(host)) || (referer && referer.includes(host)));
+
   const isWrite = req.method === 'POST' || req.method === 'DELETE';
-  if (!requireHubToken(req, res, { write: isWrite, purpose: 'sync' })) return;
+  if (!isSameOrigin) {
+    if (!requireHubToken(req, res, { write: isWrite, purpose: 'sync' })) return;
+  }
 
   // GET: 读取全量线索（含墓碑，供前端合并）
   if (req.method === 'GET') {
