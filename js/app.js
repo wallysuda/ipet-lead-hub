@@ -326,9 +326,52 @@
       if (!res.ok || !data.success) {
         throw new Error(data.error || ('HTTP ' + res.status));
       }
+
+      // 实时接收并建档新线索入库（无需等待云端回合）
+      let localAdded = 0;
+      if (window.syncService) {
+        if (Array.isArray(data.new_leads) && data.new_leads.length > 0) {
+          for (const nl of data.new_leads) {
+            await window.syncService.ingestLead(nl, { allowDuplicate: false });
+            localAdded++;
+          }
+        }
+        if (Array.isArray(data.candidate_inquiries) && data.candidate_inquiries.length > 0) {
+          const all = window.syncService.getAllLeads() || [];
+          for (const item of data.candidate_inquiries) {
+            const exists = all.some(l => (l.email || '').toLowerCase().trim() === (item.from || '').toLowerCase().trim());
+            if (!exists && item.from) {
+              const newLead = {
+                id: `LEAD-MAIL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                name: item.from.split('@')[0],
+                email: item.from,
+                company: '',
+                channel: 'email',
+                source: '企业邮箱 (IMAP)',
+                channel_source: '企业邮箱抓取',
+                channel_scenario: `来自 wally@ipetsystem.com 邮件 · 主题: ${item.subject || ''}`,
+                raw_requirements: `${item.subject || ''}\n\n${item.snippet || ''}`.trim(),
+                notes: `来自企业邮箱收件箱，主题: ${item.subject || ''}`,
+                email_thread: [{
+                  date: item.date || new Date().toISOString(),
+                  from: item.from,
+                  subject: item.subject,
+                  snippet: item.snippet,
+                  source: 'imap_inbound'
+                }],
+                status: 'NEW'
+              };
+              await window.syncService.ingestLead(newLead, { allowDuplicate: true });
+              localAdded++;
+            }
+          }
+        }
+      }
+
       let msg = `邮箱同步完成：匹配 ${data.matched || 0} 条客户回复，更新 ${data.updated || 0} 条线索`;
-      if (data.ingested > 0) {
-        msg += `，自动建档入库 ${data.ingested} 条新询盘！`;
+      const totalIngested = Math.max(data.ingested || 0, localAdded);
+      if (totalIngested > 0) {
+        msg += `，自动建档入库 ${totalIngested} 条新询盘！`;
       }
       showToast(msg, 'success');
       if (window.syncService) await window.syncService.syncWithCloud();

@@ -175,6 +175,7 @@ module.exports = async (req, res) => {
       }));
 
     let ingested = 0;
+    const ingestedLeads = [];
     const shouldIngestNew = body.ingest_new !== false;
     if (shouldIngestNew) {
       for (const item of candidateInquiries) {
@@ -205,6 +206,7 @@ module.exports = async (req, res) => {
         };
         await store.upsert(newLead);
         leads.push(newLead);
+        ingestedLeads.push(newLead);
         ingested++;
       }
     }
@@ -215,9 +217,10 @@ module.exports = async (req, res) => {
       matched: matched.length,
       updated,
       ingested,
+      new_leads: ingestedLeads,
       unmatched_count: unmatched.length,
       candidate_inquiries_count: candidateInquiries.length,
-      candidate_inquiries: candidateInquiries.slice(0, 10),
+      candidate_inquiries: candidateInquiries.slice(0, 20),
       note: '企业邮箱回复匹配与线索同步完成'
     });
   } catch (err) {
