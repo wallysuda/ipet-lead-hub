@@ -69,11 +69,5 @@
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, X-Channel-Source" }
       ]
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/mail?cron=1",
-      "schedule": "*/30 * * * *"
-    }
   ]
 }
